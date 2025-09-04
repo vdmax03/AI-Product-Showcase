@@ -1,0 +1,5 @@
+{
+  "name": "AI Product Showcase",
+  "description": "An AI-powered application to generate professional product lookbooks and B-roll shots from user-uploaded images, using Gemini to create customized photoshoots.",
+  "requestFramePermissions": []
+}
