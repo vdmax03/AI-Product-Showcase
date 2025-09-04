@@ -2,18 +2,20 @@ import { GoogleGenAI, Modality } from "@google/genai";
 import { GenerationMode } from '../types';
 
 let ai: GoogleGenAI | null = null;
+let currentApiKey: string | null = null;
 
 const getAI = (apiKey?: string): GoogleGenAI => {
   const key = apiKey || localStorage.getItem('gemini_api_key') || process.env.API_KEY;
-  
+
   if (!key) {
     throw new Error("API key is required. Please enter your Gemini API key.");
   }
-  
-  if (!ai || ai.apiKey !== key) {
+
+  if (!ai || currentApiKey !== key) {
     ai = new GoogleGenAI({ apiKey: key });
+    currentApiKey = key;
   }
-  
+
   return ai;
 };
 
@@ -135,9 +137,10 @@ export const generateVideoFromImage = async (
 
   try {
     const aiInstance = getAI(apiKey);
+    const enhancedPrompt = `Create a video from this exact image by adding natural motion. Keep the exact same appearance, face, product, and composition - do not change anything visually. Only add subtle, appropriate motion such as: walking forward, camera pan, product rotation, or gentle movement that fits the scene. Maintain the same framing and distance. ${prompt}`;
     let operation = await aiInstance.models.generateVideos({
       model: 'veo-2.0-generate-001',
-      prompt: prompt,
+      prompt: enhancedPrompt,
       image: {
         imageBytes: base64Data,
         mimeType: mimeType,
