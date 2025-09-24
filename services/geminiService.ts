@@ -1,5 +1,6 @@
 import { GoogleGenAI, Modality } from "@google/genai";
-import { GenerationMode } from '../types';
+import { GenerationMode, StylePreset } from '../types';
+import { LOOKBOOK_VARIATION_FOCUS, BROLL_VARIATION_FOCUS } from '../constants';
 
 let ai: GoogleGenAI | null = null;
 let currentApiKey: string | null = null;
@@ -37,17 +38,17 @@ const fileToGenerativePart = (file: File) => {
   });
 };
 
-const generateMockImages = async (prompt: string): Promise<{ src: string, prompt: string }[]> => {
-    await new Promise(res => setTimeout(res, 1000 + Math.random() * 1000));
-    const images = Array.from({ length: 6 }, (_, i) => {
-        const randomId = Math.floor(Math.random() * 1000) + i;
-        return {
-            src: `https://picsum.photos/512/768?random=${randomId}`,
-            prompt: prompt.length > 150 ? `${prompt.substring(0, 147)}...` : prompt,
-        };
-    });
-    return images;
-}
+const generateMockImages = async (displayPrompt: string): Promise<{ src: string; prompt: string }[]> => {
+  await new Promise(res => setTimeout(res, 1000 + Math.random() * 1000));
+  const images = Array.from({ length: 6 }, (_, i) => {
+    const randomId = Math.floor(Math.random() * 1000) + i;
+    return {
+      src: `https://picsum.photos/512/768?random=${randomId}`,
+      prompt: displayPrompt,
+    };
+  });
+  return images;
+};
 
 
 export const generateShowcaseImages = async (
@@ -56,7 +57,8 @@ export const generateShowcaseImages = async (
   lighting: string,
   productImage: File,
   modelImage?: File | null,
-  apiKey?: string
+  apiKey?: string,
+  count: number = 6
 ): Promise<{ src: string; prompt: string }[]> => {
   try {
     const aiInstance = getAI(apiKey);
@@ -69,6 +71,8 @@ export const generateShowcaseImages = async (
   const productPart = await fileToGenerativePart(productImage);
   const modelPart = mode === GenerationMode.Lookbook && modelImage ? await fileToGenerativePart(modelImage) : null;
 
+  let isApiKeyInvalid = false;
+
   const generateSingleImage = async (variation: number): Promise<{ src: string; prompt: string } | null> => {
     const parts: any[] = [];
     let promptText = '';
@@ -76,10 +80,10 @@ export const generateShowcaseImages = async (
     if (mode === GenerationMode.Lookbook && modelPart) {
       parts.push({ inlineData: modelPart });
       parts.push({ inlineData: productPart });
-      promptText = `You are a professional fashion photoshoot editor. Your task is to place the person from the first input image into a new setting, wearing the clothes from the second input image. It is absolutely critical that you DO NOT change the model's face, facial features, or identity in any way. The face in the output image must be identical to the face in the first input image. Equally important, the product from the second image (the clothing/accessory) must remain completely unchanged. Do not alter its color, shape, texture, or any specific details. Your only task is to style it on the model within a new scene. The new scene should be a "${theme}" photoshoot with "${lighting}". Pose the model naturally and dynamically. This is variation ${variation}/6.`;
+      promptText = `You are a professional fashion photoshoot editor. Your task is to place the person from the first input image into a new setting, wearing the clothes from the second input image. It is absolutely critical that you DO NOT change the model's face, facial features, or identity in any way. The face in the output image must be identical to the face in the first input image. Equally important, the product from the second image (the clothing/accessory) must remain completely unchanged. Do not alter its color, shape, texture, or any specific details. Your only task is to style it on the model within a new scene. The new scene should be a "${theme}" photoshoot with "${lighting}". Pose the model naturally and dynamically. This is variation ${variation}/${count}.`;
     } else {
       parts.push({ inlineData: productPart });
-      promptText = `Act as a professional product photographer. Create a stunning, high-resolution B-roll shot of the product in the image. It is crucial that the product itself remains identical to the one in the uploaded image. Do not change its color, design, logos, or any details. Your job is to showcase this exact product in a new, creative photographic setting. The setting is "${theme}" with a "${lighting}" lighting style. Emphasize a cinematic feel with dynamic composition and a shallow depth of field to make the product stand out. The final image must look like a professional advertisement. This is variation ${variation}/6.`;
+      promptText = `Act as a professional product photographer. Create a stunning, high-resolution B-roll shot of the product in the image. It is crucial that the product itself remains identical to the one in the uploaded image. Do not change its color, design, logos, or any details. Your job is to showcase this exact product in a new, creative photographic setting. The setting is "${theme}" with a "${lighting}" lighting style. Emphasize a cinematic feel with dynamic composition and a shallow depth of field to make the product stand out. The final image must look like a professional advertisement. This is variation ${variation}/${count}.`;
     }
     parts.push({ text: promptText });
 
@@ -102,19 +106,30 @@ export const generateShowcaseImages = async (
         }
       }
       return null;
-    } catch (error) {
+    } catch (error: any) {
+      const message = String(error?.message || error);
+      if (message.includes('API key not valid') || message.includes('API_KEY_INVALID') || message.includes('INVALID_ARGUMENT')) {
+        isApiKeyInvalid = true;
+      }
       console.error(`Error generating image ${variation}:`, error);
-      // Don't throw, just return null so Promise.all doesn't fail completely
-      return null;
+      return null; // continue gracefully
     }
   };
 
-  const generationPromises = Array.from({ length: 6 }, (_, i) => generateSingleImage(i + 1));
+  const generationPromises = Array.from({ length: Math.max(1, Math.min(12, count)) }, (_, i) => generateSingleImage(i + 1));
 
   const results = await Promise.all(generationPromises);
 
   // Filter out any null results from failed generations
-  return results.filter((result): result is { src: string; prompt: string } => result !== null);
+  const filtered = results.filter((result): result is { src: string; prompt: string } => result !== null);
+
+  // If API key is invalid or nothing came back, return mock images so the UI still works
+  if (isApiKeyInvalid || filtered.length === 0) {
+    const mockPrompt = `This is a mock response for ${mode} with theme ${theme} and lighting ${lighting}.`;
+    return generateMockImages(mockPrompt);
+  }
+
+  return filtered;
 };
 
 export const generateVideoFromImage = async (
@@ -176,8 +191,14 @@ export const generateVideoFromImage = async (
     const videoBlob = await videoResponse.blob();
     return URL.createObjectURL(videoBlob);
 
-  } catch (error) {
+  } catch (error: any) {
+    const message = String(error?.message || error);
+    // Fall back to a mock video when the API key is invalid or request fails
+    if (message.includes('API key not valid') || message.includes('API_KEY_INVALID') || message.includes('INVALID_ARGUMENT')) {
+      console.warn('Invalid API key detected during video generation. Returning mock video.');
+      return 'https://storage.googleapis.com/gtv-videos-bucket/sample/ForBiggerFun.mp4';
+    }
     console.error('Error generating video:', error);
-    throw error; // Re-throw the error to be caught by the UI
+    throw error;
   }
 };

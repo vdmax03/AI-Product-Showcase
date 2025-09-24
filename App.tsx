@@ -1,6 +1,6 @@
-import React, { useState, useCallback, useMemo } from 'react';
-import { GenerationMode, GeneratedImage } from './types';
-import { PHOTOSHOOT_THEMES, LIGHTING_STYLES } from './constants';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
+import { GenerationMode, GeneratedImage, StylePreset } from './types';
+import { PHOTOSHOOT_THEMES, LIGHTING_STYLES, LOOKBOOK_STYLE_PRESETS, BROLL_STYLE_PRESETS } from './constants';
 import { generateShowcaseImages, generateVideoFromImage } from './services/geminiService';
 import ImageUploader from './components/ImageUploader';
 import ImageCard from './components/ImageCard';
@@ -13,11 +13,32 @@ const App: React.FC = () => {
   const [productImage, setProductImage] = useState<File | null>(null);
   const [theme, setTheme] = useState<string>(PHOTOSHOOT_THEMES[0]);
   const [lighting, setLighting] = useState<string>(LIGHTING_STYLES[0]);
+  const [selectedStyleId, setSelectedStyleId] = useState<string>(LOOKBOOK_STYLE_PRESETS[0].id);
   const [generatedImages, setGeneratedImages] = useState<GeneratedImage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [zoomedImage, setZoomedImage] = useState<string | null>(null);
   const [apiKey, setApiKey] = useState<string>('');
+  const [count, setCount] = useState<number>(6);
+  const [aspect, setAspect] = useState<string>('9/16');
+  const [history, setHistory] = useState<GeneratedImage[][]>([]);
+
+  const styleOptions = useMemo(() => (
+    mode === GenerationMode.Lookbook ? LOOKBOOK_STYLE_PRESETS : BROLL_STYLE_PRESETS
+  ), [mode]);
+
+  useEffect(() => {
+    if (!styleOptions.length) {
+      return;
+    }
+    if (!styleOptions.some((option) => option.id === selectedStyleId)) {
+      setSelectedStyleId(styleOptions[0].id);
+    }
+  }, [styleOptions, selectedStyleId]);
+
+  const selectedStyle = useMemo<StylePreset>(() => {
+    return (styleOptions.find((option) => option.id === selectedStyleId) ?? styleOptions[0]) as StylePreset;
+  }, [styleOptions, selectedStyleId]);
 
   const isGenerationDisabled = useMemo(() => {
     if (isLoading) return true;
@@ -36,13 +57,14 @@ const App: React.FC = () => {
 
     try {
       if (!productImage) throw new Error("Product image is required.");
-      const results = await generateShowcaseImages(mode, theme, lighting, productImage, modelImage, apiKey);
+      const results = await generateShowcaseImages(mode, theme, lighting, productImage, modelImage, apiKey, count);
       if (results.length === 0) {
         throw new Error("The model did not return any images. Please try a different combination or check your API key.");
       }
       setGeneratedImages(
         results.map((img, index) => ({ ...img, id: `${Date.now()}-${index}` }))
       );
+      setHistory((h) => [[...results.map((img, index) => ({ ...img, id: `${Date.now()}-${index}` }))], ...h].slice(0, 10));
     } catch (err: any) {
       setError(err.message || 'An unexpected error occurred.');
     } finally {
@@ -117,6 +139,20 @@ const App: React.FC = () => {
     </div>
   );
 
+  const StyleOptionButton: React.FC<{ preset: StylePreset }> = ({ preset }) => {
+    const isActive = selectedStyleId === preset.id;
+    return (
+      <button
+        type="button"
+        onClick={() => setSelectedStyleId(preset.id)}
+        className={`text-left p-3 rounded-lg border transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 ${isActive ? 'border-blue-500 bg-blue-500/10 shadow-lg' : 'border-slate-700 bg-slate-700/50 hover:border-slate-600'}`}
+      >
+        <p className="text-sm font-semibold text-white">{preset.name}</p>
+        <p className="text-xs text-gray-300 mt-1 leading-snug">{preset.description ?? preset.prompt}</p>
+      </button>
+    );
+  };
+
   return (
     <>
       <div className="min-h-screen text-gray-100 p-4 sm:p-6 lg:p-8 font-sans">
@@ -150,13 +186,45 @@ const App: React.FC = () => {
               <h2 className="text-lg font-semibold text-white mb-1">
                 {mode === GenerationMode.Lookbook ? "3. Customize Look" : "2. Customize Look"}
               </h2>
-              <p className="text-sm text-gray-400 mb-3">Set the theme and lighting for the photoshoot.</p>
-              <div className="flex gap-4">
-                <SelectInput label="Photoshoot Theme" value={theme} onChange={(e) => setTheme(e.target.value)} options={PHOTOSHOOT_THEMES} />
-                <SelectInput label="Lighting Style" value={lighting} onChange={(e) => setLighting(e.target.value)} options={LIGHTING_STYLES} />
+              <p className="text-sm text-gray-400 mb-3">Pick a vibe preset, then fine-tune the theme and lighting.</p>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">Vibe Preset</label>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-56 overflow-y-auto pr-1">
+                    {styleOptions.map((preset) => (
+                      <StyleOptionButton key={preset.id} preset={preset} />
+                    ))}
+                  </div>
+                </div>
+                <div className="flex flex-col sm:flex-row gap-4">
+                  <SelectInput label="Photoshoot Theme" value={theme} onChange={(e) => setTheme(e.target.value)} options={PHOTOSHOOT_THEMES} />
+                  <SelectInput label="Lighting Style" value={lighting} onChange={(e) => setLighting(e.target.value)} options={LIGHTING_STYLES} />
+                </div>
+                <div className="flex items-center gap-3">
+                  <label className="block text-sm font-medium text-gray-300">Aspect Ratio</label>
+                  <div className="flex gap-2">
+                    {['1/1','4/5','3/4','9/16','16/9'].map(r => (
+                      <button key={r} onClick={() => setAspect(r)} type="button" className={`px-3 py-1.5 text-xs font-semibold rounded-md border ${aspect===r? 'bg-blue-600 text-white border-blue-500' : 'bg-slate-700 text-gray-200 border-slate-600 hover:bg-slate-600'}`}>{r}</button>
+                    ))}
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <label className="block text-sm font-medium text-gray-300">Jumlah Gambar</label>
+                  <div className="flex gap-2">
+                    {[3,6,9,12].map(n => (
+                      <button
+                        key={n}
+                        type="button"
+                        onClick={() => setCount(n)}
+                        className={`px-3 py-1.5 text-xs font-semibold rounded-md border ${count===n? 'bg-blue-600 text-white border-blue-500' : 'bg-slate-700 text-gray-200 border-slate-600 hover:bg-slate-600'}`}
+                      >{n}</button>
+                    ))}
+                  </div>
+                </div>
               </div>
             </div>
 
+            <div className="flex gap-3">
             <button
               onClick={handleGenerate}
               disabled={isGenerationDisabled}
@@ -174,12 +242,52 @@ const App: React.FC = () => {
                 `Create ${mode}`
               )}
             </button>
+            <button
+              onClick={() => { setGeneratedImages([]); setError(null); }}
+              className="min-w-[140px] bg-slate-700 text-gray-200 font-semibold py-3 px-4 rounded-lg border border-slate-600 hover:bg-slate-600"
+            >Reset</button>
+            <button
+              onClick={() => {
+                // randomize style, theme, lighting
+                const styles = styleOptions;
+                const rStyle = styles[Math.floor(Math.random()*styles.length)];
+                setSelectedStyleId(rStyle.id);
+                setTheme(PHOTOSHOOT_THEMES[Math.floor(Math.random()*PHOTOSHOOT_THEMES.length)]);
+                setLighting(LIGHTING_STYLES[Math.floor(Math.random()*LIGHTING_STYLES.length)]);
+              }}
+              className="min-w-[140px] bg-slate-700 text-gray-200 font-semibold py-3 px-4 rounded-lg border border-slate-600 hover:bg-slate-600"
+            >Random</button>
+            </div>
           </div>
 
           {/* Right Panel: Gallery */}
           <div className="bg-slate-800 p-6 rounded-xl shadow-2xl border border-slate-700">
             <div className="flex justify-between items-center mb-4">
                <h2 className="text-xl font-bold">Your {mode === GenerationMode.Lookbook ? 'Fashion Lookbook' : 'Product B-roll'}!</h2>
+               {generatedImages.length>0 && (
+                 <div className="flex gap-2">
+                   <button
+                     onClick={() => {
+                       const text = generatedImages.map(g=>g.prompt).join('\n\n');
+                       navigator.clipboard.writeText(text);
+                     }}
+                     className="px-3 py-2 text-xs font-semibold rounded-md bg-slate-700 text-gray-200 border border-slate-600 hover:bg-slate-600"
+                   >Copy Semua Prompt</button>
+                   <button
+                     onClick={() => {
+                       generatedImages.forEach(g => {
+                         const link = document.createElement('a');
+                         link.href = g.videoSrc || g.src;
+                         link.download = `ai-showcase-${g.id}.${g.videoSrc ? 'mp4' : 'png'}`;
+                         document.body.appendChild(link);
+                         link.click();
+                         document.body.removeChild(link);
+                       });
+                     }}
+                     className="px-3 py-2 text-xs font-semibold rounded-md bg-blue-600 text-white hover:bg-blue-500"
+                   >Download Semua</button>
+                 </div>
+               )}
             </div>
             {isLoading && generatedImages.length === 0 && (
                  <div className="text-center text-gray-400 mt-10">
@@ -199,11 +307,30 @@ const App: React.FC = () => {
               </div>
             )}
             
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+            <div className={`grid ${aspect==='1/1' ? 'grid-cols-3' : 'grid-cols-2 sm:grid-cols-3'} gap-4`}>
               {generatedImages.map((img) => (
-                <ImageCard key={img.id} image={img} onZoom={setZoomedImage} onGenerateVideo={handleGenerateVideo} />
+                <div key={img.id} className={aspect==='1/1' ? 'aspect-square' : aspect==='4/5' ? 'aspect-[4/5]' : aspect==='3/4' ? 'aspect-[3/4]' : aspect==='16/9' ? 'aspect-video' : 'aspect-[9/16]'}>
+                  <ImageCard
+                    image={img}
+                    onZoom={setZoomedImage}
+                    onGenerateVideo={handleGenerateVideo}
+                    onDelete={(id)=>setGeneratedImages(list=>list.filter(g=>g.id!==id))}
+                    onToggleFavorite={(id)=>setGeneratedImages(list=>list.map(g=>g.id===id?{...g, isFavorite: !g.isFavorite}:g))}
+                  />
+                </div>
               ))}
             </div>
+
+            {history.length>0 && (
+              <div className="mt-6">
+                <h3 className="text-sm font-semibold text-gray-300 mb-2">Riwayat Terakhir</h3>
+                <div className="flex flex-wrap gap-2">
+                  {history.map((h,idx)=> (
+                    <button key={idx} onClick={()=> setGeneratedImages(h)} className="px-3 py-1.5 text-xs rounded-md bg-slate-700 text-gray-200 border border-slate-600 hover:bg-slate-600">Batch {idx+1}</button>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </main>
       </div>

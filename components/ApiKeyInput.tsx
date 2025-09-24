@@ -9,6 +9,7 @@ const ApiKeyInput: React.FC<ApiKeyInputProps> = ({ onApiKeyChange }) => {
   const [apiKey, setApiKey] = useState('');
   const [showApiKey, setShowApiKey] = useState(false);
   const [isValid, setIsValid] = useState(false);
+  const [saved, setSaved] = useState(false);
 
   useEffect(() => {
     // Load API key from localStorage on component mount
@@ -24,15 +25,27 @@ const ApiKeyInput: React.FC<ApiKeyInputProps> = ({ onApiKeyChange }) => {
     setApiKey(value);
     const valid = value.trim().length > 0;
     setIsValid(valid);
-    
-    // Save to localStorage
-    if (valid) {
-      localStorage.setItem('gemini_api_key', value.trim());
-    } else {
-      localStorage.removeItem('gemini_api_key');
-    }
-    
     onApiKeyChange(value.trim());
+    setSaved(false);
+  };
+
+  const handleSave = () => {
+    const value = apiKey.trim();
+    const valid = value.length > 0;
+    setIsValid(valid);
+    if (valid) {
+      localStorage.setItem('gemini_api_key', value);
+      onApiKeyChange(value);
+      setSaved(true);
+    }
+  };
+
+  const handleClear = () => {
+    localStorage.removeItem('gemini_api_key');
+    setApiKey('');
+    setIsValid(false);
+    onApiKeyChange('');
+    setSaved(false);
   };
 
   const toggleShowApiKey = () => {
@@ -83,10 +96,27 @@ const ApiKeyInput: React.FC<ApiKeyInputProps> = ({ onApiKeyChange }) => {
           )}
         </button>
       </div>
+
+      <div className="mt-3 flex gap-2">
+        <button
+          type="button"
+          onClick={handleSave}
+          className="px-3 py-2 text-xs font-semibold rounded-md bg-blue-600 text-white hover:bg-blue-500"
+        >
+          Simpan
+        </button>
+        <button
+          type="button"
+          onClick={handleClear}
+          className="px-3 py-2 text-xs font-semibold rounded-md bg-slate-700 text-gray-200 hover:bg-slate-600 border border-slate-600"
+        >
+          Hapus
+        </button>
+      </div>
       
       {apiKey.length > 0 && (
         <div className={`mt-2 text-xs ${isValid ? 'text-green-400' : 'text-red-400'}`}>
-          {isValid ? '✓ API key saved' : '⚠ Please enter a valid API key'}
+          {isValid ? (saved ? '✓ API key disimpan ke perangkat ini' : 'Tekan "Simpan" untuk menyimpan') : '⚠ Masukkan API key yang valid'}
         </div>
       )}
     </div>

@@ -6,6 +6,8 @@ interface ImageCardProps {
   image: GeneratedImage;
   onZoom: (src: string) => void;
   onGenerateVideo: (id: string) => void;
+  onDelete?: (id: string) => void;
+  onToggleFavorite?: (id: string) => void;
 }
 
 const ActionButton: React.FC<{ onClick?: () => void; children: React.ReactNode }> = ({ onClick, children }) => (
@@ -17,7 +19,7 @@ const ActionButton: React.FC<{ onClick?: () => void; children: React.ReactNode }
   </button>
 );
 
-const ImageCard: React.FC<ImageCardProps> = ({ image, onZoom, onGenerateVideo }) => {
+const ImageCard: React.FC<ImageCardProps> = ({ image, onZoom, onGenerateVideo, onDelete, onToggleFavorite }) => {
   const [copied, setCopied] = useState(false);
 
   const handleCopyPrompt = () => {
@@ -37,6 +39,27 @@ const ImageCard: React.FC<ImageCardProps> = ({ image, onZoom, onGenerateVideo })
 
   return (
     <div className="relative aspect-[9/16] group overflow-hidden rounded-lg shadow-lg bg-slate-900">
+      {/* Top-right quick actions */}
+      <div className="absolute top-2 right-2 z-10 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+        {onToggleFavorite && (
+          <button
+            title="Favorit"
+            onClick={() => onToggleFavorite(image.id)}
+            className={`px-2 py-1 text-[10px] rounded-md ${image.isFavorite ? 'bg-yellow-400 text-black' : 'bg-white/10 text-white hover:bg-white/20'}`}
+          >
+            {image.isFavorite ? '★' : '☆'}
+          </button>
+        )}
+        {onDelete && (
+          <button
+            title="Hapus"
+            onClick={() => onDelete(image.id)}
+            className="px-2 py-1 text-[10px] rounded-md bg-red-600 text-white hover:bg-red-500"
+          >
+            Hapus
+          </button>
+        )}
+      </div>
       {image.videoSrc ? (
         <video
           src={image.videoSrc}
