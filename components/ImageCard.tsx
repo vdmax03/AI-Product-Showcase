@@ -13,7 +13,7 @@ interface ImageCardProps {
 const ActionButton: React.FC<{ onClick?: () => void; children: React.ReactNode }> = ({ onClick, children }) => (
   <button
     onClick={onClick}
-    className="w-full flex items-center justify-center px-4 py-2 bg-white/10 backdrop-blur-sm text-white text-sm font-semibold rounded-md hover:bg-white/20 transition-all duration-200"
+    className="w-full flex items-center justify-center px-4 py-2 bg-white/10 backdrop-blur-sm text-white text-sm font-semibold rounded-lg hover:bg-white/20 transition-all duration-200 shadow-sm hover:shadow"
   >
     {children}
   </button>
@@ -38,7 +38,7 @@ const ImageCard: React.FC<ImageCardProps> = ({ image, onZoom, onGenerateVideo, o
   };
 
   return (
-    <div className="relative aspect-[9/16] group overflow-hidden rounded-lg shadow-lg bg-slate-900">
+    <div className="relative aspect-[9/16] group overflow-hidden rounded-xl shadow-xl bg-slate-900 ring-1 ring-white/10">
       {/* Top-right quick actions */}
       <div className="absolute top-2 right-2 z-10 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
         {onToggleFavorite && (
@@ -72,7 +72,7 @@ const ImageCard: React.FC<ImageCardProps> = ({ image, onZoom, onGenerateVideo, o
           controls
         />
       ) : (
-        <img src={image.src} alt="Generated product shot" className="w-full h-full object-cover" />
+        <img src={image.src} alt="Generated product shot" className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.02]" />
       )}
 
       {/* Loading Overlay */}
@@ -98,7 +98,7 @@ const ImageCard: React.FC<ImageCardProps> = ({ image, onZoom, onGenerateVideo, o
 
       {/* Actions Overlay (only show if not loading) */}
       {!image.isVideoGenerating && (
-          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-4">
+          <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-4">
           <p className="text-white text-xs mb-3 leading-snug">{image.prompt}</p>
           <div className="space-y-2">
             <ActionButton onClick={handleCopyPrompt}>

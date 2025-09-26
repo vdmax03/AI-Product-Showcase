@@ -85,3 +85,36 @@ export const BROLL_VARIATION_FOCUS = [
   'Backlit silhouette with glow outlining the product shape.',
   'Reflection composition using mirrors, glass, or glossy surfaces.',
 ];
+
+// Profile Picture Generation Constants
+export const PROFILE_PICTURE_STYLES = [
+  'Mixed Styles',
+  'Professional',
+  'Casual', 
+  'High-Fashion',
+];
+
+export const PROFILE_PICTURE_SHOT_TYPES = [
+  'Face',
+  'Upper Body',
+  'Full Body',
+  'Random',
+];
+
+export const PROFILE_PICTURE_GENDERS = [
+  'Female',
+  'Male',
+];
+
+export const PROFILE_PICTURE_VARIATION_FOCUS = [
+  'Professional headshot with confident expression and clean background.',
+  'Casual portrait with natural lighting and relaxed pose.',
+  'Creative artistic shot with unique composition and styling.',
+  'Fashion-forward portrait with trendy outfit and modern styling.',
+  'Classic portrait with timeless elegance and sophisticated look.',
+  'Dynamic pose with movement and energy in the composition.',
+  'Close-up face shot emphasizing facial features and expression.',
+  'Environmental portrait incorporating interesting background elements.',
+  'Studio-style portrait with controlled lighting and professional setup.',
+  'Lifestyle portrait showing personality and character.',
+];

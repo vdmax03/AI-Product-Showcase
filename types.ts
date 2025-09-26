@@ -1,6 +1,7 @@
 export enum GenerationMode {
   Lookbook = 'Lookbook',
   Broll = 'B-roll',
+  ProfilePicture = 'Profile Picture',
 }
 
 export interface StylePreset {
@@ -18,5 +19,24 @@ export interface GeneratedImage {
   isVideoGenerating?: boolean;
   videoError?: string | null;
   isFavorite?: boolean;
+}
+
+export enum Gender {
+  Female = 'Female',
+  Male = 'Male',
+}
+
+export enum ShotType {
+  Face = 'Face',
+  UpperBody = 'Upper Body',
+  FullBody = 'Full Body',
+  Random = 'Random',
+}
+
+export enum ProfileStyle {
+  MixedStyles = 'Mixed Styles',
+  Professional = 'Professional',
+  Casual = 'Casual',
+  HighFashion = 'High-Fashion',
 }
 

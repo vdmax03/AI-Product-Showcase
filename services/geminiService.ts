@@ -1,6 +1,6 @@
 import { GoogleGenAI, Modality } from "@google/genai";
-import { GenerationMode, StylePreset } from '../types';
-import { LOOKBOOK_VARIATION_FOCUS, BROLL_VARIATION_FOCUS } from '../constants';
+import { GenerationMode, StylePreset, Gender, ShotType, ProfileStyle } from '../types';
+import { LOOKBOOK_VARIATION_FOCUS, BROLL_VARIATION_FOCUS, PROFILE_PICTURE_VARIATION_FOCUS } from '../constants';
 
 let ai: GoogleGenAI | null = null;
 let currentApiKey: string | null = null;
@@ -38,17 +38,6 @@ const fileToGenerativePart = (file: File) => {
   });
 };
 
-const generateMockImages = async (displayPrompt: string): Promise<{ src: string; prompt: string }[]> => {
-  await new Promise(res => setTimeout(res, 1000 + Math.random() * 1000));
-  const images = Array.from({ length: 6 }, (_, i) => {
-    const randomId = Math.floor(Math.random() * 1000) + i;
-    return {
-      src: `https://picsum.photos/512/768?random=${randomId}`,
-      prompt: displayPrompt,
-    };
-  });
-  return images;
-};
 
 
 export const generateShowcaseImages = async (
@@ -60,13 +49,12 @@ export const generateShowcaseImages = async (
   apiKey?: string,
   count: number = 6
 ): Promise<{ src: string; prompt: string }[]> => {
-  try {
-    const aiInstance = getAI(apiKey);
-  } catch (error) {
-    // If no API key, use mock functionality
-    const mockPrompt = `This is a mock response for ${mode} with theme ${theme} and lighting ${lighting}.`;
-    return generateMockImages(mockPrompt);
+  // Always require API key for real generation
+  if (!apiKey && !localStorage.getItem('gemini_api_key') && !process.env.API_KEY) {
+    throw new Error("API key is required. Please enter your Gemini API key to generate images.");
   }
+
+  const aiInstance = getAI(apiKey);
 
   const productPart = await fileToGenerativePart(productImage);
   const modelPart = mode === GenerationMode.Lookbook && modelImage ? await fileToGenerativePart(modelImage) : null;
@@ -123,10 +111,103 @@ export const generateShowcaseImages = async (
   // Filter out any null results from failed generations
   const filtered = results.filter((result): result is { src: string; prompt: string } => result !== null);
 
-  // If API key is invalid or nothing came back, return mock images so the UI still works
-  if (isApiKeyInvalid || filtered.length === 0) {
-    const mockPrompt = `This is a mock response for ${mode} with theme ${theme} and lighting ${lighting}.`;
-    return generateMockImages(mockPrompt);
+  // If API key is invalid or nothing came back, throw error instead of using mock
+  if (isApiKeyInvalid) {
+    throw new Error("Invalid API key. Please check your Gemini API key and try again.");
+  }
+
+  if (filtered.length === 0) {
+    throw new Error("No images were generated. Please try again with different settings or check your API key.");
+  }
+
+  return filtered;
+};
+
+export const generateProfilePictures = async (
+  userImage: File,
+  gender: Gender,
+  shotType: ShotType,
+  style: ProfileStyle,
+  apiKey?: string,
+  count: number = 20
+): Promise<{ src: string; prompt: string }[]> => {
+  // Always require API key for real generation
+  if (!apiKey && !localStorage.getItem('gemini_api_key') && !process.env.API_KEY) {
+    throw new Error("API key is required. Please enter your Gemini API key to generate profile pictures.");
+  }
+
+  const aiInstance = getAI(apiKey);
+
+  const userImagePart = await fileToGenerativePart(userImage);
+  let isApiKeyInvalid = false;
+
+  const generateSingleProfilePicture = async (variation: number): Promise<{ src: string; prompt: string } | null> => {
+    const parts: any[] = [];
+    
+    // Build the prompt based on user selections - simplified for faster generation
+    let promptText = `Create a professional profile picture of the person in the image. Keep their face and identity exactly the same. Style: ${style}, Shot: ${shotType}, Gender: ${gender}. ${PROFILE_PICTURE_VARIATION_FOCUS[variation % PROFILE_PICTURE_VARIATION_FOCUS.length]}. High quality, well-lit, perfect for social media.`;
+
+    parts.push({ inlineData: userImagePart });
+    parts.push({ text: promptText });
+
+    try {
+      const aiInstance = getAI(apiKey);
+      const response = await aiInstance.models.generateContent({
+        model: 'gemini-2.5-flash-image-preview',
+        contents: { parts },
+        config: {
+          responseModalities: [Modality.IMAGE, Modality.TEXT],
+        },
+      });
+
+      for (const part of response.candidates?.[0]?.content?.parts || []) {
+        if (part.inlineData) {
+          return {
+            src: `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`,
+            prompt: promptText.substring(0, 200), // Keep prompt short for display
+          };
+        }
+      }
+      return null;
+    } catch (error: any) {
+      const message = String(error?.message || error);
+      if (message.includes('API key not valid') || message.includes('API_KEY_INVALID') || message.includes('INVALID_ARGUMENT')) {
+        isApiKeyInvalid = true;
+      }
+      console.error(`Error generating profile picture ${variation}:`, error);
+      return null; // continue gracefully
+    }
+  };
+
+  // Generate images in optimized batches for 20 images
+  const batchSize = 4;
+  const totalImages = Math.max(1, Math.min(20, count));
+  const results: ({ src: string; prompt: string } | null)[] = [];
+
+  for (let i = 0; i < totalImages; i += batchSize) {
+    const batchPromises = Array.from({ length: Math.min(batchSize, totalImages - i) }, (_, j) => 
+      generateSingleProfilePicture(i + j + 1)
+    );
+    
+    const batchResults = await Promise.all(batchPromises);
+    results.push(...batchResults);
+    
+    // Small delay between batches to avoid rate limiting
+    if (i + batchSize < totalImages) {
+      await new Promise(resolve => setTimeout(resolve, 300));
+    }
+  }
+
+  // Filter out any null results from failed generations
+  const filtered = results.filter((result): result is { src: string; prompt: string } => result !== null);
+
+  // If API key is invalid or nothing came back, throw error instead of using mock
+  if (isApiKeyInvalid) {
+    throw new Error("Invalid API key. Please check your Gemini API key and try again.");
+  }
+
+  if (filtered.length === 0) {
+    throw new Error("No profile pictures were generated. Please try again with different settings or check your API key.");
   }
 
   return filtered;
@@ -137,15 +218,12 @@ export const generateVideoFromImage = async (
   imageSrc: string, // This will be a data URL
   apiKey?: string
 ): Promise<string> => {
-  try {
-    const aiInstance = getAI(apiKey);
-  } catch (error) {
-    // Mock functionality for video
-    console.log("Mocking video generation...");
-    await new Promise(res => setTimeout(res, 3000));
-    // Return a sample video URL for testing
-    return 'https://storage.googleapis.com/gtv-videos-bucket/sample/ForBiggerFun.mp4';
+  // Always require API key for real video generation
+  if (!apiKey && !localStorage.getItem('gemini_api_key') && !process.env.API_KEY) {
+    throw new Error("API key is required. Please enter your Gemini API key to generate videos.");
   }
+
+  const aiInstance = getAI(apiKey);
 
   const base64Data = imageSrc.split(',')[1];
   const mimeType = imageSrc.match(/data:(.*);base64,/)?.[1] || 'image/png';
@@ -193,12 +271,7 @@ export const generateVideoFromImage = async (
 
   } catch (error: any) {
     const message = String(error?.message || error);
-    // Fall back to a mock video when the API key is invalid or request fails
-    if (message.includes('API key not valid') || message.includes('API_KEY_INVALID') || message.includes('INVALID_ARGUMENT')) {
-      console.warn('Invalid API key detected during video generation. Returning mock video.');
-      return 'https://storage.googleapis.com/gtv-videos-bucket/sample/ForBiggerFun.mp4';
-    }
     console.error('Error generating video:', error);
-    throw error;
+    throw new Error(`Video generation failed: ${message}`);
   }
 };

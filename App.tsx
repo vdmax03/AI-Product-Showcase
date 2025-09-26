@@ -6,6 +6,7 @@ import ImageUploader from './components/ImageUploader';
 import ImageCard from './components/ImageCard';
 import Modal from './components/Modal';
 import ApiKeyInput from './components/ApiKeyInput';
+import ProfilePictureGenerator from './components/ProfilePictureGenerator';
 
 const App: React.FC = () => {
   const [mode, setMode] = useState<GenerationMode>(GenerationMode.Lookbook);
@@ -153,6 +154,11 @@ const App: React.FC = () => {
     );
   };
 
+  // If Profile Picture mode is selected, render the ProfilePictureGenerator component
+  if (mode === GenerationMode.ProfilePicture) {
+    return <ProfilePictureGenerator apiKey={apiKey} onBack={() => setMode(GenerationMode.Lookbook)} />;
+  }
+
   return (
     <>
       <div className="min-h-screen text-gray-100 p-4 sm:p-6 lg:p-8 font-sans">
@@ -169,9 +175,10 @@ const App: React.FC = () => {
             <div>
               <h2 className="text-lg font-semibold text-white mb-1">Select Generation Mode</h2>
               <p className="text-sm text-gray-400 mb-3">Choose what you want to create.</p>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-3 gap-2">
                 <ModeButton value={GenerationMode.Lookbook} />
                 <ModeButton value={GenerationMode.Broll} />
+                <ModeButton value={GenerationMode.ProfilePicture} />
               </div>
             </div>
 

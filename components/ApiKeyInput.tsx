@@ -53,7 +53,7 @@ const ApiKeyInput: React.FC<ApiKeyInputProps> = ({ onApiKeyChange }) => {
   };
 
   return (
-    <div className="bg-slate-800 p-4 rounded-xl border border-slate-700 mb-6">
+    <div className="bg-slate-900/60 backdrop-blur-xl p-4 rounded-2xl ring-1 ring-white/10 mb-6">
       <div className="flex items-center gap-2 mb-2">
         <KeyIcon className="w-4 h-4 text-blue-400" />
         <h3 className="text-sm font-semibold text-gray-200">Gemini API Key</h3>
@@ -76,7 +76,7 @@ const ApiKeyInput: React.FC<ApiKeyInputProps> = ({ onApiKeyChange }) => {
           value={apiKey}
           onChange={(e) => handleApiKeyChange(e.target.value)}
           placeholder="Enter your Gemini API key..."
-          className={`w-full bg-slate-700 text-white p-3 pr-10 rounded-md border transition-colors outline-none ${
+          className={`w-full bg-slate-800/70 text-white p-3 pr-10 rounded-lg border transition-colors outline-none ${
             apiKey.length === 0 
               ? 'border-slate-600 focus:border-blue-500' 
               : isValid 
@@ -101,14 +101,14 @@ const ApiKeyInput: React.FC<ApiKeyInputProps> = ({ onApiKeyChange }) => {
         <button
           type="button"
           onClick={handleSave}
-          className="px-3 py-2 text-xs font-semibold rounded-md bg-blue-600 text-white hover:bg-blue-500"
+          className="px-3 py-2 text-xs font-semibold rounded-md bg-gradient-to-r from-blue-600 to-cyan-500 text-white hover:brightness-110"
         >
           Simpan
         </button>
         <button
           type="button"
           onClick={handleClear}
-          className="px-3 py-2 text-xs font-semibold rounded-md bg-slate-700 text-gray-200 hover:bg-slate-600 border border-slate-600"
+          className="px-3 py-2 text-xs font-semibold rounded-md bg-slate-700/70 text-gray-200 hover:bg-slate-600 border border-slate-600"
         >
           Hapus
         </button>
