@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
 import { GeneratedImage } from '../types';
-import { CopyIcon, ZoomIcon, DownloadIcon, VideoIcon, XIcon } from './icons';
+import { CopyIcon, ZoomIcon, DownloadIcon, PromptIcon, XIcon } from './icons';
 
 interface ImageCardProps {
   image: GeneratedImage;
   onZoom: (src: string) => void;
-  onGenerateVideo: (id: string) => void;
+  onGeneratePrompt: (id: string) => void;
   onDelete?: (id: string) => void;
   onToggleFavorite?: (id: string) => void;
 }
@@ -19,7 +19,7 @@ const ActionButton: React.FC<{ onClick?: () => void; children: React.ReactNode }
   </button>
 );
 
-const ImageCard: React.FC<ImageCardProps> = ({ image, onZoom, onGenerateVideo, onDelete, onToggleFavorite }) => {
+const ImageCard: React.FC<ImageCardProps> = ({ image, onZoom, onGeneratePrompt, onDelete, onToggleFavorite }) => {
   const [copied, setCopied] = useState(false);
 
   const handleCopyPrompt = () => {
@@ -75,20 +75,8 @@ const ImageCard: React.FC<ImageCardProps> = ({ image, onZoom, onGenerateVideo, o
         <img src={image.src} alt="Generated product shot" className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.02]" />
       )}
 
-      {/* Loading Overlay */}
-      {image.isVideoGenerating && (
-        <div className="absolute inset-0 bg-black/70 flex flex-col items-center justify-center text-white p-4 text-center">
-            <svg className="animate-spin h-8 w-8 text-white mb-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-            </svg>
-          <p className="font-semibold text-sm">Generating Video</p>
-          <p className="text-xs text-gray-300">This may take a few minutes...</p>
-        </div>
-      )}
-
       {/* Error Overlay */}
-      {image.videoError && !image.isVideoGenerating && (
+      {image.videoError && (
           <div className="absolute inset-0 bg-red-900/80 flex flex-col items-center justify-center text-white p-4 text-center">
             <XIcon className="w-8 h-8 mb-2"/>
             <p className="font-semibold text-sm">Video Failed</p>
@@ -113,10 +101,10 @@ const ImageCard: React.FC<ImageCardProps> = ({ image, onZoom, onGenerateVideo, o
               </ActionButton>
             ) : (
               <>
-                <ActionButton onClick={() => onGenerateVideo(image.id)}>
-                  <VideoIcon className="w-4 h-4 mr-2" />
-                  Generate Video
-                </ActionButton>
+        <ActionButton onClick={() => onGeneratePrompt(image.id)}>
+          <PromptIcon className="w-4 h-4 mr-2" />
+          Generate Veo 3 Prompt
+        </ActionButton>
                 <ActionButton onClick={() => onZoom(image.src)}>
                   <ZoomIcon className="w-4 h-4 mr-2" />
                   Zoom Image

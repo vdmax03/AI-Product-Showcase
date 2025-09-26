@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useMemo } from 'react';
-import { GeneratedImage, Gender, ShotType, ProfileStyle } from '../types';
-import { generateProfilePictures } from '../services/geminiService';
+import { GeneratedImage, Gender, ShotType, ProfileStyle, GenerationMode } from '../types';
+import { generateProfilePictures, generateVeo3Prompt } from '../services/geminiService';
 import { PROFILE_PICTURE_STYLES, PROFILE_PICTURE_SHOT_TYPES, PROFILE_PICTURE_GENDERS } from '../constants';
 import ImageUploader from './ImageUploader';
 import ImageCard from './ImageCard';
@@ -241,6 +241,17 @@ const ProfilePictureGenerator: React.FC<ProfilePictureGeneratorProps> = ({ apiKe
                     Copy All Prompts
                   </button>
                   <button
+                    onClick={() => {
+                      const veo3Prompts = generatedImages.map(g => generateVeo3Prompt(g, GenerationMode.ProfilePicture));
+                      const text = veo3Prompts.join('\n\n' + '='.repeat(50) + '\n\n');
+                      navigator.clipboard.writeText(text);
+                      alert('Semua Prompt Veo 3 berhasil di-copy ke clipboard!');
+                    }}
+                    className="px-3 py-2 text-xs font-semibold rounded-md bg-purple-600 text-white border border-purple-500 hover:bg-purple-500"
+                  >
+                    Copy All Prompt Veo 3
+                  </button>
+                  <button
                     onClick={handleDownloadAll}
                     className="flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-md bg-green-600 text-white hover:bg-green-500"
                   >
@@ -286,13 +297,13 @@ const ProfilePictureGenerator: React.FC<ProfilePictureGeneratorProps> = ({ apiKe
             <div className="grid grid-cols-3 gap-4">
               {generatedImages.map((img) => (
                 <div key={img.id} className="aspect-square">
-                  <ImageCard
-                    image={img}
-                    onZoom={setZoomedImage}
-                    onGenerateVideo={() => {}} // Profile pictures don't need video generation
-                    onDelete={(id) => setGeneratedImages(list => list.filter(g => g.id !== id))}
-                    onToggleFavorite={(id) => setGeneratedImages(list => list.map(g => g.id === id ? { ...g, isFavorite: !g.isFavorite } : g))}
-                  />
+        <ImageCard
+          image={img}
+          onZoom={setZoomedImage}
+          onGeneratePrompt={() => {}} // Profile pictures juga bisa punya prompt
+          onDelete={(id) => setGeneratedImages(list => list.filter(g => g.id !== id))}
+          onToggleFavorite={(id) => setGeneratedImages(list => list.map(g => g.id === id ? { ...g, isFavorite: !g.isFavorite } : g))}
+        />
                 </div>
               ))}
             </div>

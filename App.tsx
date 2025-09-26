@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { GenerationMode, GeneratedImage, StylePreset } from './types';
 import { PHOTOSHOOT_THEMES, LIGHTING_STYLES, LOOKBOOK_STYLE_PRESETS, BROLL_STYLE_PRESETS } from './constants';
-import { generateShowcaseImages, generateVideoFromImage } from './services/geminiService';
+import { generateShowcaseImages, generateVideoFromImage, generateVeo3Prompt } from './services/geminiService';
 import ImageUploader from './components/ImageUploader';
 import ImageCard from './components/ImageCard';
 import Modal from './components/Modal';
@@ -73,39 +73,14 @@ const App: React.FC = () => {
     }
   }, [isGenerationDisabled, mode, theme, lighting, productImage, modelImage]);
 
-  const handleGenerateVideo = useCallback(async (imageId: string) => {
+  const handleGeneratePrompt = useCallback((imageId: string) => {
     const imageToProcess = generatedImages.find(img => img.id === imageId);
-    if (!imageToProcess || imageToProcess.isVideoGenerating || imageToProcess.videoSrc) {
-        return;
-    }
+    if (!imageToProcess) return;
 
-    // Set loading state for the specific image
-    setGeneratedImages(currentImages =>
-        currentImages.map(img =>
-            img.id === imageId ? { ...img, isVideoGenerating: true, videoError: null } : img
-        )
-    );
-
-    try {
-        const videoPrompt = `Create a dynamic, short video clip based on this image. Emphasize a 9:16 vertical aspect ratio, suitable for social media stories. Original prompt for context: ${imageToProcess.prompt}`;
-        const videoUrl = await generateVideoFromImage(videoPrompt, imageToProcess.src, apiKey);
-
-        // Update state with the new video URL
-        setGeneratedImages(currentImages =>
-            currentImages.map(img =>
-                img.id === imageId ? { ...img, isVideoGenerating: false, videoSrc: videoUrl } : img
-            )
-        );
-    } catch (err: any) {
-        console.error("Video generation failed:", err);
-        // Update state with an error message for the specific image
-        setGeneratedImages(currentImages =>
-            currentImages.map(img =>
-                img.id === imageId ? { ...img, isVideoGenerating: false, videoError: err.message || 'Failed to generate video.' } : img
-            )
-        );
-    }
-  }, [generatedImages]);
+    const veo3Prompt = generateVeo3Prompt(imageToProcess, mode);
+    navigator.clipboard.writeText(veo3Prompt);
+    alert('Veo 3 Prompt berhasil di-copy ke clipboard!\n\nPaste di Google Veo untuk generate video dengan narasi bahasa Indonesia.');
+  }, [generatedImages, mode]);
 
   const ModeButton: React.FC<{ value: GenerationMode }> = ({ value }) => (
     <button
@@ -282,6 +257,15 @@ const App: React.FC = () => {
                    >Copy Semua Prompt</button>
                    <button
                      onClick={() => {
+                       const veo3Prompts = generatedImages.map(g => generateVeo3Prompt(g, mode));
+                       const text = veo3Prompts.join('\n\n' + '='.repeat(50) + '\n\n');
+                       navigator.clipboard.writeText(text);
+                       alert('Semua Prompt Veo 3 berhasil di-copy ke clipboard!');
+                     }}
+                     className="px-3 py-2 text-xs font-semibold rounded-md bg-purple-600 text-white border border-purple-500 hover:bg-purple-500"
+                   >Copy All Prompt Veo 3</button>
+                   <button
+                     onClick={() => {
                        generatedImages.forEach(g => {
                          const link = document.createElement('a');
                          link.href = g.videoSrc || g.src;
@@ -320,7 +304,7 @@ const App: React.FC = () => {
                   <ImageCard
                     image={img}
                     onZoom={setZoomedImage}
-                    onGenerateVideo={handleGenerateVideo}
+                    onGeneratePrompt={handleGeneratePrompt}
                     onDelete={(id)=>setGeneratedImages(list=>list.filter(g=>g.id!==id))}
                     onToggleFavorite={(id)=>setGeneratedImages(list=>list.map(g=>g.id===id?{...g, isFavorite: !g.isFavorite}:g))}
                   />

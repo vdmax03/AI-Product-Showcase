@@ -275,3 +275,65 @@ export const generateVideoFromImage = async (
     throw new Error(`Video generation failed: ${message}`);
   }
 };
+
+export const generateVeo3Prompt = (
+  image: GeneratedImage,
+  mode: GenerationMode
+): string => {
+  const templates = {
+    lookbook: {
+      hook: "Apakah kamu pernah merasa bingung memadukan outfit yang stylish?",
+      masalah: "Banyak orang kesulitan mengombinasikan pakaian agar terlihat fashionable dan percaya diri.",
+      isi: "Dalam video ini, kita akan melihat bagaimana style yang tepat dapat mengubah penampilan secara total. Perhatikan detail outfit, warna, dan cara memadukan aksesori yang sempurna.",
+      solusi: "Dengan tips styling yang tepat, kamu juga bisa tampil percaya diri dan stylish setiap hari!"
+    },
+    broll: {
+      hook: "Pernahkah kamu penasaran bagaimana produk berkualitas dibuat?",
+      masalah: "Konsumen sering ragu memilih produk karena tidak tahu kualitas dan detail produknya.",
+      isi: "Mari kita lihat lebih dekat produk ini - dari detail material, craftsmanship, hingga fungsi yang membuatnya istimewa. Setiap sudut menunjukkan kualitas premium.",
+      solusi: "Dengan memahami kualitas produk, kamu bisa membuat keputusan pembelian yang tepat!"
+    },
+    profilepicture: {
+      hook: "Pernahkah kamu merasa foto profilmu kurang menarik atau profesional?",
+      masalah: "Banyak orang kesulitan mendapatkan foto profil yang sempurna - terlalu formal, kurang natural, atau tidak mencerminkan kepribadian asli.",
+      isi: "Dalam video ini, kita akan melihat bagaimana foto profil yang tepat dapat meningkatkan kepercayaan diri dan kesan profesional. Perhatikan pose, ekspresi, dan styling yang membuat foto terlihat natural namun menarik.",
+      solusi: "Dengan tips fotografi profil yang tepat, kamu juga bisa memiliki foto profil yang sempurna untuk semua kebutuhan!"
+    }
+  };
+
+  const template = mode === GenerationMode.Lookbook ? templates.lookbook : 
+                   mode === GenerationMode.Broll ? templates.broll : 
+                   templates.profilepicture;
+
+  return `Create a dynamic vertical video (9:16 aspect ratio) based on this image with Indonesian voiceover narration:
+
+HOOK (0-3 seconds): "${template.hook}"
+- Start with engaging question/statement
+- Show main subject prominently  
+- Use dynamic camera movement (zoom in/pan)
+
+PROBLEM (3-8 seconds): "${template.masalah}"
+- Explain the common problem/challenge
+- Use close-up shots to emphasize details
+- Maintain engagement with smooth transitions
+
+CONTENT (8-20 seconds): "${template.isi}"
+- Showcase main content/product/style
+- Use multiple angles and perspectives
+- Highlight key features and benefits
+- Include smooth camera movements
+
+SOLUTION (20-25 seconds): "${template.solusi}"
+- Present solution or call-to-action
+- End with strong, confident statement
+- Use wide shot or hero angle
+- Add subtle zoom out for impact
+
+Technical requirements:
+- Duration: 25 seconds maximum
+- Aspect ratio: 9:16 (vertical)
+- Indonesian voiceover with clear pronunciation
+- Background music: upbeat and engaging
+- Text overlays in Indonesian for key points
+- Modern, dynamic style for social media`;
+};
