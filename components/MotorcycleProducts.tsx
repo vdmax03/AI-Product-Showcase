@@ -4,7 +4,7 @@ import { generateShowcaseImages } from '../services/geminiService';
 import ImageUploader from './ImageUploader';
 import ImageCard from './ImageCard';
 import Modal from './Modal';
-
+import LoadingSpinner from './LoadingSpinner';
 interface MotorcycleProductsProps {
   apiKey: string;
   onBack: () => void;
@@ -27,7 +27,8 @@ const MotorcycleProducts: React.FC<MotorcycleProductsProps> = ({ apiKey, onBack 
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [zoomedImage, setZoomedImage] = useState<string | null>(null);
-  const [count, setCount] = useState<number>(6);
+  const [count, setCount] = useState<number>(6);  
+  // Enhancement states removed
 
   const isGenerationDisabled = useMemo(() => {
     return isLoading || !modelImage || !productImage;
@@ -71,7 +72,7 @@ const MotorcycleProducts: React.FC<MotorcycleProductsProps> = ({ apiKey, onBack 
     } finally {
       setIsLoading(false);
     }
-  }, [isGenerationDisabled, modelImage, productImage, apiKey, count, selectedMotorcycleStyle]);
+  }, [isGenerationDisabled, productImage, modelImage, apiKey, count]);
 
   return (
     <>
@@ -101,9 +102,9 @@ const MotorcycleProducts: React.FC<MotorcycleProductsProps> = ({ apiKey, onBack 
           </div>
         </header>
 
-        <main className="grid grid-cols-1 lg:grid-cols-2 gap-8 max-w-7xl mx-auto">
+        <main className="grid grid-cols-1 lg:grid-cols-2 gap-8 max-w-6xl mx-auto">
           {/* Left Panel: Controls */}
-          <div className="bg-white/10 backdrop-blur-md p-8 rounded-2xl shadow-2xl border border-white/20 flex flex-col gap-8 h-fit">
+          <div className="lg:col-span-1 bg-white/10 backdrop-blur-md p-8 rounded-2xl shadow-2xl border border-white/20 flex flex-col gap-8 h-fit">
             
             {/* Upload Section */}
             <div className="space-y-6">
@@ -218,7 +219,7 @@ const MotorcycleProducts: React.FC<MotorcycleProductsProps> = ({ apiKey, onBack 
           </div>
 
           {/* Right Panel: Gallery */}
-          <div className="bg-white/10 backdrop-blur-md p-8 rounded-2xl shadow-2xl border border-white/20">
+          <div className="lg:col-span-1 bg-white/10 backdrop-blur-md p-8 rounded-2xl shadow-2xl border border-white/20">
             <div className="flex justify-between items-center mb-6">
               <div>
                 <h2 className="text-2xl font-bold text-white mb-2">🏍️ Riding Scenes</h2>
@@ -248,19 +249,12 @@ const MotorcycleProducts: React.FC<MotorcycleProductsProps> = ({ apiKey, onBack 
               )}
             </div>
 
-            {isLoading && generatedImages.length === 0 && (
-              <div className="text-center text-white mt-16">
-                <div className="relative">
-                  <div className="animate-spin rounded-full h-16 w-16 border-4 border-red-500/30 border-t-red-500 mx-auto mb-6"></div>
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <svg className="w-8 h-8 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                    </svg>
-                  </div>
-                </div>
-                <p className="mb-2 text-xl font-semibold bg-gradient-to-r from-red-400 to-orange-400 bg-clip-text text-transparent">✨ AI is creating riding scenes... ✨</p>
-                <p className="text-orange-200">This may take a moment</p>
-              </div>
+                        {isLoading && generatedImages.length === 0 && (
+              <LoadingSpinner 
+                size="lg" 
+                text="AI is generating your content..." 
+                
+              />
             )}
 
             {error && (
@@ -298,6 +292,8 @@ const MotorcycleProducts: React.FC<MotorcycleProductsProps> = ({ apiKey, onBack 
                   </div>
                 </div>
               ))}
+            
+
             </div>
           </div>
         </main>

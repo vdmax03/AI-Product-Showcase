@@ -4,7 +4,7 @@ import { generateShowcaseImages } from '../services/geminiService';
 import ImageUploader from './ImageUploader';
 import ImageCard from './ImageCard';
 import Modal from './Modal';
-
+import LoadingSpinner from './LoadingSpinner';
 interface CustomizeThemeProps {
   apiKey: string;
   onBack: () => void;
@@ -29,7 +29,8 @@ const CustomizeTheme: React.FC<CustomizeThemeProps> = ({ apiKey, onBack }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [zoomedImage, setZoomedImage] = useState<string | null>(null);
-  const [count, setCount] = useState<number>(6);
+  const [count, setCount] = useState<number>(6);  
+  // Enhancement states removed
 
   const isGenerationDisabled = useMemo(() => {
     return isLoading || !modelImage || !productImage;
@@ -73,7 +74,7 @@ const CustomizeTheme: React.FC<CustomizeThemeProps> = ({ apiKey, onBack }) => {
     } finally {
       setIsLoading(false);
     }
-  }, [isGenerationDisabled, modelImage, productImage, apiKey, count, selectedThemeStyle]);
+  }, [isGenerationDisabled, productImage, modelImage, apiKey, count]);
 
   return (
     <>
@@ -103,9 +104,9 @@ const CustomizeTheme: React.FC<CustomizeThemeProps> = ({ apiKey, onBack }) => {
           </div>
         </header>
 
-        <main className="grid grid-cols-1 lg:grid-cols-2 gap-8 max-w-7xl mx-auto">
+        <main className="grid grid-cols-1 lg:grid-cols-2 gap-8 max-w-6xl mx-auto">
           {/* Left Panel: Controls */}
-          <div className="bg-white/10 backdrop-blur-md p-8 rounded-2xl shadow-2xl border border-white/20 flex flex-col gap-8 h-fit">
+          <div className="lg:col-span-1 bg-white/10 backdrop-blur-md p-8 rounded-2xl shadow-2xl border border-white/20 flex flex-col gap-8 h-fit">
             
             {/* Upload Section */}
             <div className="space-y-6">
@@ -220,7 +221,7 @@ const CustomizeTheme: React.FC<CustomizeThemeProps> = ({ apiKey, onBack }) => {
           </div>
 
           {/* Right Panel: Gallery */}
-          <div className="bg-white/10 backdrop-blur-md p-8 rounded-2xl shadow-2xl border border-white/20">
+          <div className="lg:col-span-1 bg-white/10 backdrop-blur-md p-8 rounded-2xl shadow-2xl border border-white/20">
             <div className="flex justify-between items-center mb-6">
               <div>
                 <h2 className="text-2xl font-bold text-white mb-2">🎨 Themed Results</h2>
@@ -250,19 +251,12 @@ const CustomizeTheme: React.FC<CustomizeThemeProps> = ({ apiKey, onBack }) => {
               )}
             </div>
 
-            {isLoading && generatedImages.length === 0 && (
-              <div className="text-center text-white mt-16">
-                <div className="relative">
-                  <div className="animate-spin rounded-full h-16 w-16 border-4 border-slate-500/30 border-t-slate-500 mx-auto mb-6"></div>
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <svg className="w-8 h-8 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zM21 5a2 2 0 00-2-2h-4a2 2 0 00-2 2v12a4 4 0 004 4h4a2 2 0 002-2V5z" />
-                    </svg>
-                  </div>
-                </div>
-                <p className="mb-2 text-xl font-semibold bg-gradient-to-r from-slate-400 to-gray-400 bg-clip-text text-transparent">✨ AI is creating themed images... ✨</p>
-                <p className="text-gray-200">This may take a moment</p>
-              </div>
+                        {isLoading && generatedImages.length === 0 && (
+              <LoadingSpinner 
+                size="lg" 
+                text="AI is generating your content..." 
+                
+              />
             )}
 
             {error && (
@@ -300,6 +294,8 @@ const CustomizeTheme: React.FC<CustomizeThemeProps> = ({ apiKey, onBack }) => {
                   </div>
                 </div>
               ))}
+            
+
             </div>
           </div>
         </main>

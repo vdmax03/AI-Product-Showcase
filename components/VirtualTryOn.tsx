@@ -1,10 +1,10 @@
 import React, { useState, useCallback, useMemo } from 'react';
 import { GeneratedImage } from '../types';
-import { generateShowcaseImages } from '../services/geminiService';
+import { generateVirtualTryOnImages } from '../services/geminiService';
 import ImageUploader from './ImageUploader';
 import ImageCard from './ImageCard';
 import Modal from './Modal';
-
+import LoadingSpinner from './LoadingSpinner';
 interface VirtualTryOnProps {
   apiKey: string;
   onBack: () => void;
@@ -18,6 +18,8 @@ const VirtualTryOn: React.FC<VirtualTryOnProps> = ({ apiKey, onBack }) => {
   const [error, setError] = useState<string | null>(null);
   const [zoomedImage, setZoomedImage] = useState<string | null>(null);
   const [count, setCount] = useState<number>(6);
+  
+  // Enhancement states removed
 
   const isGenerationDisabled = useMemo(() => {
     return isLoading || !modelImage || !clothingImage;
@@ -32,16 +34,12 @@ const VirtualTryOn: React.FC<VirtualTryOnProps> = ({ apiKey, onBack }) => {
 
     try {
       if (!modelImage || !clothingImage) throw new Error("Both model and clothing images are required.");
-      const results = await generateShowcaseImages(
-        'Lookbook' as any, 
-        'Virtual Try-On', 
-        'Professional Studio Lighting', 
-        clothingImage, 
+      const results = await generateVirtualTryOnImages(
         modelImage, 
+        clothingImage, 
+        'Professional Fashion Photography', 
         apiKey, 
-        count, 
-        true, 
-        'high'
+        count
       );
       
       if (results.length === 0) {
@@ -86,7 +84,7 @@ const VirtualTryOn: React.FC<VirtualTryOnProps> = ({ apiKey, onBack }) => {
           </div>
         </header>
 
-        <main className="grid grid-cols-1 lg:grid-cols-2 gap-8 max-w-7xl mx-auto">
+        <main className="grid grid-cols-1 lg:grid-cols-2 gap-8 max-w-6xl mx-auto">
           {/* Left Panel: Controls */}
           <div className="bg-white/10 backdrop-blur-md p-8 rounded-2xl shadow-2xl border border-white/20 flex flex-col gap-8 h-fit">
             
@@ -212,18 +210,11 @@ const VirtualTryOn: React.FC<VirtualTryOnProps> = ({ apiKey, onBack }) => {
             </div>
 
             {isLoading && generatedImages.length === 0 && (
-              <div className="text-center text-white mt-16">
-                <div className="relative">
-                  <div className="animate-spin rounded-full h-16 w-16 border-4 border-pink-500/30 border-t-pink-500 mx-auto mb-6"></div>
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <svg className="w-8 h-8 text-pink-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                    </svg>
-                  </div>
-                </div>
-                <p className="mb-2 text-xl font-semibold bg-gradient-to-r from-pink-400 to-purple-400 bg-clip-text text-transparent">✨ AI is creating your virtual try-on... ✨</p>
-                <p className="text-blue-200">This may take a moment</p>
-              </div>
+              <LoadingSpinner 
+                size="lg" 
+                text="AI is creating your virtual try-on..." 
+                
+              />
             )}
 
             {error && (
@@ -262,6 +253,7 @@ const VirtualTryOn: React.FC<VirtualTryOnProps> = ({ apiKey, onBack }) => {
                 </div>
               ))}
             </div>
+
           </div>
         </main>
       </div>

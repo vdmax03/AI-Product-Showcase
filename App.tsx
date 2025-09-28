@@ -15,9 +15,11 @@ import ChangePose from './components/ChangePose';
 import CustomizeTheme from './components/CustomizeTheme';
 import MotorcycleProducts from './components/MotorcycleProducts';
 import FoodBeverageProducts from './components/FoodBeverageProducts';
+import VoiceOverGenerator from './components/VoiceOverGenerator';
+import LoadingSpinner from './components/LoadingSpinner';
 
 const App: React.FC = () => {
-  const [currentView, setCurrentView] = useState<'main' | 'profile' | 'virtual-tryon' | 'product-backgrounds' | 'skincare' | 'household' | 'change-pose' | 'customize-theme' | 'motorcycle' | 'fnb' | 'lookbook' | 'broll'>('main');
+  const [currentView, setCurrentView] = useState<'main' | 'profile' | 'virtual-tryon' | 'product-backgrounds' | 'skincare' | 'household' | 'change-pose' | 'customize-theme' | 'motorcycle' | 'fnb' | 'voice-over' | 'lookbook' | 'broll'>('main');
   const [mode, setMode] = useState<GenerationMode | null>(null);
   const [modelImage, setModelImage] = useState<File | null>(null);
   const [productImage, setProductImage] = useState<File | null>(null);
@@ -31,6 +33,9 @@ const App: React.FC = () => {
   const [apiKey, setApiKey] = useState<string>('');
   const [count, setCount] = useState<number>(6);
   const [aspect, setAspect] = useState<string>('9/16');
+  
+  // New feature states
+  const [enhancementSettings, setEnhancementSettings] = useState<any>({});
   const [history, setHistory] = useState<GeneratedImage[][]>([]);
   const [faceConsistency, setFaceConsistency] = useState<boolean>(true);
   const [faceQuality, setFaceQuality] = useState<string>('high');
@@ -82,6 +87,7 @@ const App: React.FC = () => {
     }
   }, [mode]);
 
+
   // Render different views based on currentView
   if (currentView === 'profile') {
     return <ProfilePictureGenerator apiKey={apiKey} onBack={() => setCurrentView('main')} />;
@@ -118,11 +124,11 @@ const App: React.FC = () => {
   if (currentView === 'fnb') {
     return <FoodBeverageProducts apiKey={apiKey} onBack={() => setCurrentView('main')} />;
   }
-
-  // If Profile Picture mode is selected, render the ProfilePictureGenerator component
-  if (mode === GenerationMode.ProfilePicture) {
-    return <ProfilePictureGenerator apiKey={apiKey} onBack={() => setMode(GenerationMode.Lookbook)} />;
+  
+  if (currentView === 'voice-over') {
+    return <VoiceOverGenerator apiKey={apiKey} onBack={() => setCurrentView('main')} />;
   }
+
 
   // If Lookbook or B-roll mode is selected and in lookbook/broll view, render the original interface
   if ((mode === GenerationMode.Lookbook && currentView === 'lookbook') || (mode === GenerationMode.Broll && currentView === 'broll')) {
@@ -183,13 +189,13 @@ const App: React.FC = () => {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
                   </svg>
                 </div>
-                <span className="text-3xl font-bold">8 IN 1</span>
+                <span className="text-3xl font-bold">Multi Vdmax Studio</span>
               </div>
-              <span className="text-sm font-medium opacity-90">AI STUDIO UNTUK BISNIS & UMKM</span>
+              <span className="text-sm font-medium opacity-90">Multi Vdmax Studio</span>
             </div>
           </div>
           <h1 className="text-5xl sm:text-6xl font-bold tracking-tight bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 bg-clip-text text-transparent mb-4">
-            AI Studio
+            Multi Vdmax Studio
           </h1>
           <p className="text-xl text-blue-200 max-w-2xl mx-auto leading-relaxed">
             Pilih fitur AI yang ingin Anda gunakan di bawah ini untuk menciptakan konten visual yang menakjubkan
@@ -377,6 +383,20 @@ const App: React.FC = () => {
               <h3 className="text-xl font-bold text-white mb-2 group-hover:text-green-300 transition-colors">Produk F&B</h3>
               <p className="text-green-200 text-sm leading-relaxed">Tampilkan model Anda sedang menikmati makanan atau minuman.</p>
             </button>
+
+            {/* Voice Over Generator */}
+            <button
+              onClick={() => setCurrentView('voice-over')}
+              className="bg-white/10 backdrop-blur-md p-6 rounded-2xl shadow-2xl border border-white/20 hover:border-purple-400 transition-all duration-300 text-left group transform hover:scale-105 hover:shadow-3xl"
+            >
+              <div className="w-14 h-14 bg-gradient-to-r from-purple-500 to-pink-500 rounded-2xl flex items-center justify-center mb-4 group-hover:from-purple-400 group-hover:to-pink-400 transition-all duration-300 shadow-lg">
+                <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+                </svg>
+              </div>
+              <h3 className="text-xl font-bold text-white mb-2 group-hover:text-purple-300 transition-colors">Voice Over Generator</h3>
+              <p className="text-purple-200 text-sm leading-relaxed">Buat narasi voice over yang menarik dari gambar produk Anda.</p>
+            </button>
             </div>
           </div>
         </main>
@@ -390,7 +410,7 @@ const App: React.FC = () => {
 const OriginalInterface: React.FC<{
   mode: GenerationMode;
   setMode: (mode: GenerationMode) => void;
-  setCurrentView: (view: 'main' | 'profile' | 'virtual-tryon' | 'product-backgrounds' | 'skincare' | 'household' | 'change-pose' | 'customize-theme' | 'motorcycle' | 'fnb' | 'lookbook' | 'broll') => void;
+  setCurrentView: (view: 'main' | 'profile' | 'virtual-tryon' | 'product-backgrounds' | 'skincare' | 'household' | 'change-pose' | 'customize-theme' | 'motorcycle' | 'fnb' | 'voice-over' | 'lookbook' | 'broll') => void;
   modelImage: File | null;
   setModelImage: (file: File | null) => void;
   productImage: File | null;
@@ -419,6 +439,13 @@ const OriginalInterface: React.FC<{
   setFaceConsistency: (consistency: boolean) => void;
   faceQuality: string;
   setFaceQuality: (quality: string) => void;
+  isBatchProcessing: boolean;
+  batchProgress: number;
+  handleTemplateSelect: (template: any) => void;
+  handleBatchGenerate: (count: number) => void;
+  handleImageEnhance: (enhancements: any) => void;
+  advancedSettings: any;
+  setAdvancedSettings: (settings: any) => void;
   handleGenerate: () => void;
   handleGeneratePrompt: (image: GeneratedImage) => void;
   isGenerationDisabled: boolean;
@@ -754,10 +781,10 @@ const OriginalInterface: React.FC<{
                )}
             </div>
             {isLoading && generatedImages.length === 0 && (
-                 <div className="text-center text-gray-400 mt-10">
-                    <p className="mb-4 text-lg">✨ AI is crafting your visuals... ✨</p>
-                    <p className="text-sm">This can take a moment, especially for high-quality generations.</p>
-                 </div>
+              <LoadingSpinner 
+                size="lg" 
+                text="AI is crafting your visuals..." 
+              />
             )}
              {error && <div className="text-center text-red-400 bg-red-900/50 p-4 rounded-lg">{error}</div>}
 
@@ -784,6 +811,8 @@ const OriginalInterface: React.FC<{
                 </div>
               ))}
             </div>
+
+            {/* New Enhancement Components */}
 
             {history.length>0 && (
               <div className="mt-6">

@@ -5,7 +5,7 @@ import { PROFILE_PICTURE_STYLES, PROFILE_PICTURE_SHOT_TYPES, PROFILE_PICTURE_GEN
 import ImageUploader from './ImageUploader';
 import ImageCard from './ImageCard';
 import Modal from './Modal';
-
+import LoadingSpinner from './LoadingSpinner';
 interface ProfilePictureGeneratorProps {
   apiKey: string;
   onBack: () => void;
@@ -46,7 +46,7 @@ const ProfilePictureGenerator: React.FC<ProfilePictureGeneratorProps> = ({ apiKe
     } finally {
       setIsLoading(false);
     }
-  }, [isGenerationDisabled, userImage, gender, shotType, style, apiKey]);
+  }, [isGenerationDisabled, productImage, modelImage, apiKey, count]);
 
   const handleGenerateMore = useCallback(async () => {
     if (!userImage || isLoading) return;
@@ -127,7 +127,7 @@ const ProfilePictureGenerator: React.FC<ProfilePictureGeneratorProps> = ({ apiKe
           <p className="text-gray-400 mt-2">Create stunning profile pictures in seconds</p>
         </header>
 
-        <main className="grid grid-cols-1 lg:grid-cols-2 gap-8 max-w-7xl mx-auto">
+        <main className="grid grid-cols-1 lg:grid-cols-2 gap-8 max-w-6xl mx-auto">
           {/* Left Panel: Controls */}
           <div className="bg-slate-800 p-6 rounded-xl shadow-2xl border border-slate-700 flex flex-col gap-6 h-fit">
             
@@ -274,12 +274,12 @@ const ProfilePictureGenerator: React.FC<ProfilePictureGeneratorProps> = ({ apiKe
               )}
             </div>
 
-            {isLoading && generatedImages.length === 0 && (
-              <div className="text-center text-gray-400 mt-10">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
-                <p className="mb-2 text-lg">✨ AI is crafting your profile pictures... ✨</p>
-                <p className="text-sm">Generating 20 unique styles - this should take about 2-3 minutes</p>
-              </div>
+                        {isLoading && generatedImages.length === 0 && (
+              <LoadingSpinner 
+                size="lg" 
+                text="AI is generating your content..." 
+                
+              />
             )}
 
             {error && <div className="text-center text-red-400 bg-red-900/50 p-4 rounded-lg mb-4">{error}</div>}
@@ -306,6 +306,8 @@ const ProfilePictureGenerator: React.FC<ProfilePictureGeneratorProps> = ({ apiKe
         />
                 </div>
               ))}
+            
+
             </div>
           </div>
         </main>

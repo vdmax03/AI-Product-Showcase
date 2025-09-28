@@ -1,10 +1,10 @@
 import React, { useState, useCallback, useMemo } from 'react';
 import { GeneratedImage } from '../types';
-import { generateShowcaseImages } from '../services/geminiService';
+import { generateProductBackgroundImages } from '../services/geminiService';
 import ImageUploader from './ImageUploader';
 import ImageCard from './ImageCard';
 import Modal from './Modal';
-
+import LoadingSpinner from './LoadingSpinner';
 interface ProductBackgroundsProps {
   apiKey: string;
   onBack: () => void;
@@ -29,6 +29,8 @@ const ProductBackgrounds: React.FC<ProductBackgroundsProps> = ({ apiKey, onBack 
   const [error, setError] = useState<string | null>(null);
   const [zoomedImage, setZoomedImage] = useState<string | null>(null);
   const [count, setCount] = useState<number>(6);
+  
+  // Enhancement states removed
 
   const isGenerationDisabled = useMemo(() => {
     return isLoading || !productImage;
@@ -47,17 +49,11 @@ const ProductBackgrounds: React.FC<ProductBackgroundsProps> = ({ apiKey, onBack 
 
     try {
       if (!productImage) throw new Error("Product image is required.");
-      const results = await generateShowcaseImages(
-        'B-roll' as any, 
-        'Product Photography', 
-        'Professional Studio Lighting', 
+      const results = await generateProductBackgroundImages(
         productImage, 
-        null, 
+        selectedBackgroundStyle.prompt, 
         apiKey, 
-        count, 
-        true, 
-        'high',
-        { prompt: selectedBackgroundStyle.prompt, name: selectedBackgroundStyle.name }
+        count
       );
       
       if (results.length === 0) {
@@ -102,9 +98,9 @@ const ProductBackgrounds: React.FC<ProductBackgroundsProps> = ({ apiKey, onBack 
           </div>
         </header>
 
-        <main className="grid grid-cols-1 lg:grid-cols-2 gap-8 max-w-7xl mx-auto">
+        <main className="grid grid-cols-1 lg:grid-cols-2 gap-8 max-w-6xl mx-auto">
           {/* Left Panel: Controls */}
-          <div className="bg-white/10 backdrop-blur-md p-8 rounded-2xl shadow-2xl border border-white/20 flex flex-col gap-8 h-fit">
+          <div className="lg:col-span-1 bg-white/10 backdrop-blur-md p-8 rounded-2xl shadow-2xl border border-white/20 flex flex-col gap-8 h-fit">
             
             {/* Upload Section */}
             <div className="space-y-6">
@@ -205,7 +201,7 @@ const ProductBackgrounds: React.FC<ProductBackgroundsProps> = ({ apiKey, onBack 
           </div>
 
           {/* Right Panel: Gallery */}
-          <div className="bg-white/10 backdrop-blur-md p-8 rounded-2xl shadow-2xl border border-white/20">
+          <div className="lg:col-span-1 bg-white/10 backdrop-blur-md p-8 rounded-2xl shadow-2xl border border-white/20">
             <div className="flex justify-between items-center mb-6">
               <div>
                 <h2 className="text-2xl font-bold text-white mb-2">🎨 Background Results</h2>
@@ -236,18 +232,11 @@ const ProductBackgrounds: React.FC<ProductBackgroundsProps> = ({ apiKey, onBack 
             </div>
 
             {isLoading && generatedImages.length === 0 && (
-              <div className="text-center text-white mt-16">
-                <div className="relative">
-                  <div className="animate-spin rounded-full h-16 w-16 border-4 border-emerald-500/30 border-t-emerald-500 mx-auto mb-6"></div>
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <svg className="w-8 h-8 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                    </svg>
-                  </div>
-                </div>
-                <p className="mb-2 text-xl font-semibold bg-gradient-to-r from-emerald-400 to-teal-400 bg-clip-text text-transparent">✨ AI is creating your backgrounds... ✨</p>
-                <p className="text-cyan-200">This may take a moment</p>
-              </div>
+              <LoadingSpinner 
+                size="lg" 
+                text="AI is creating your backgrounds..." 
+                
+              />
             )}
 
             {error && (
@@ -286,6 +275,7 @@ const ProductBackgrounds: React.FC<ProductBackgroundsProps> = ({ apiKey, onBack 
                 </div>
               ))}
             </div>
+
           </div>
         </main>
       </div>

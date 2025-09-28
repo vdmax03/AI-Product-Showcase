@@ -1,22 +1,22 @@
 import React, { useState, useCallback, useMemo } from 'react';
 import { GeneratedImage } from '../types';
-import { generateShowcaseImages } from '../services/geminiService';
+import { generateHouseholdProductImages } from '../services/geminiService';
 import ImageUploader from './ImageUploader';
 import ImageCard from './ImageCard';
 import Modal from './Modal';
-
+import LoadingSpinner from './LoadingSpinner';
 interface HouseholdProductsProps {
   apiKey: string;
   onBack: () => void;
 }
 
 const HOUSEHOLD_STYLES = [
-  { id: 'kitchen-use', name: 'Kitchen Use', prompt: 'Model using household product in modern kitchen setting, natural lighting' },
-  { id: 'cleaning-routine', name: 'Cleaning Routine', prompt: 'Model demonstrating cleaning product in home environment' },
-  { id: 'living-room', name: 'Living Room', prompt: 'Model using household product in cozy living room setting' },
-  { id: 'bathroom', name: 'Bathroom', prompt: 'Model using household product in clean bathroom setting' },
-  { id: 'outdoor-use', name: 'Outdoor Use', prompt: 'Model using household product in outdoor/garden setting' },
-  { id: 'storage-organization', name: 'Storage & Organization', prompt: 'Model organizing with household product, neat and tidy setting' },
+  { id: 'kitchen-use', name: 'Kitchen Use', prompt: 'Person actively using household product in modern kitchen setting, holding and demonstrating the product, natural home lighting' },
+  { id: 'cleaning-routine', name: 'Cleaning Routine', prompt: 'Person demonstrating cleaning product in home environment, showing how to use the product effectively' },
+  { id: 'living-room', name: 'Living Room', prompt: 'Person using household product in cozy living room setting, interacting with the product naturally' },
+  { id: 'bathroom', name: 'Bathroom', prompt: 'Person using household product in clean bathroom setting, showing practical usage' },
+  { id: 'outdoor-use', name: 'Outdoor Use', prompt: 'Person using household product in outdoor/garden setting, demonstrating outdoor functionality' },
+  { id: 'storage-organization', name: 'Storage & Organization', prompt: 'Person organizing with household product, showing storage and organization solutions' },
 ];
 
 const HouseholdProducts: React.FC<HouseholdProductsProps> = ({ apiKey, onBack }) => {
@@ -27,7 +27,8 @@ const HouseholdProducts: React.FC<HouseholdProductsProps> = ({ apiKey, onBack })
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [zoomedImage, setZoomedImage] = useState<string | null>(null);
-  const [count, setCount] = useState<number>(6);
+  const [count, setCount] = useState<number>(6);  
+  // Enhancement states removed
 
   const isGenerationDisabled = useMemo(() => {
     return isLoading || !modelImage || !productImage;
@@ -46,17 +47,12 @@ const HouseholdProducts: React.FC<HouseholdProductsProps> = ({ apiKey, onBack })
 
     try {
       if (!modelImage || !productImage) throw new Error("Both model and product images are required.");
-      const results = await generateShowcaseImages(
-        'Lookbook' as any, 
-        'Household Product Use', 
-        'Natural Home Lighting', 
+      const results = await generateHouseholdProductImages(
         productImage, 
         modelImage, 
+        selectedHouseholdStyle.prompt, 
         apiKey, 
-        count, 
-        true, 
-        'high',
-        { prompt: selectedHouseholdStyle.prompt, name: selectedHouseholdStyle.name }
+        count
       );
       
       if (results.length === 0) {
@@ -71,7 +67,7 @@ const HouseholdProducts: React.FC<HouseholdProductsProps> = ({ apiKey, onBack })
     } finally {
       setIsLoading(false);
     }
-  }, [isGenerationDisabled, modelImage, productImage, apiKey, count, selectedHouseholdStyle]);
+  }, [isGenerationDisabled, productImage, modelImage, apiKey, count]);
 
   return (
     <>
@@ -102,9 +98,9 @@ const HouseholdProducts: React.FC<HouseholdProductsProps> = ({ apiKey, onBack })
           </div>
         </header>
 
-        <main className="grid grid-cols-1 lg:grid-cols-2 gap-8 max-w-7xl mx-auto">
+        <main className="grid grid-cols-1 lg:grid-cols-2 gap-8 max-w-6xl mx-auto">
           {/* Left Panel: Controls */}
-          <div className="bg-white/10 backdrop-blur-md p-8 rounded-2xl shadow-2xl border border-white/20 flex flex-col gap-8 h-fit">
+          <div className="lg:col-span-1 bg-white/10 backdrop-blur-md p-8 rounded-2xl shadow-2xl border border-white/20 flex flex-col gap-8 h-fit">
             
             {/* Upload Section */}
             <div className="space-y-6">
@@ -219,8 +215,8 @@ const HouseholdProducts: React.FC<HouseholdProductsProps> = ({ apiKey, onBack })
             </button>
           </div>
 
-          {/* Right Panel: Gallery */}
-          <div className="bg-white/10 backdrop-blur-md p-8 rounded-2xl shadow-2xl border border-white/20">
+          {/* Middle Panel: Gallery */}
+          <div className="lg:col-span-1 bg-white/10 backdrop-blur-md p-8 rounded-2xl shadow-2xl border border-white/20">
             <div className="flex justify-between items-center mb-6">
               <div>
                 <h2 className="text-2xl font-bold text-white mb-2">🏠 Household Scenes</h2>
@@ -250,20 +246,12 @@ const HouseholdProducts: React.FC<HouseholdProductsProps> = ({ apiKey, onBack })
               )}
             </div>
 
-            {isLoading && generatedImages.length === 0 && (
-              <div className="text-center text-white mt-16">
-                <div className="relative">
-                  <div className="animate-spin rounded-full h-16 w-16 border-4 border-orange-500/30 border-t-orange-500 mx-auto mb-6"></div>
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <svg className="w-8 h-8 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2H5a2 2 0 00-2-2z" />
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 21v-4a2 2 0 012-2h4a2 2 0 012 2v4" />
-                    </svg>
-                  </div>
-                </div>
-                <p className="mb-2 text-xl font-semibold bg-gradient-to-r from-orange-400 to-amber-400 bg-clip-text text-transparent">✨ AI is creating your household scenes... ✨</p>
-                <p className="text-amber-200">This may take a moment</p>
-              </div>
+                        {isLoading && generatedImages.length === 0 && (
+              <LoadingSpinner 
+                size="lg" 
+                text="AI is generating your content..." 
+                
+              />
             )}
 
             {error && (
@@ -303,6 +291,12 @@ const HouseholdProducts: React.FC<HouseholdProductsProps> = ({ apiKey, onBack })
               ))}
             </div>
           </div>
+          
+          {/* Enhancement Components - Right Sidebar */}
+          {generatedImages.length > 0 && (
+            <div className="lg:col-span-1 space-y-6">
+              {/* Template Gallery */}{/* Batch Processor */}{/* Image Enhancer */}{/* Advanced Customizer */}</div>
+          )}
         </main>
       </div>
       <Modal src={zoomedImage} onClose={() => setZoomedImage(null)} />
