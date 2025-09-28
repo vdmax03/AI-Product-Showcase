@@ -1,5 +1,5 @@
 import { GoogleGenAI, Modality } from "@google/genai";
-import { GenerationMode, StylePreset, Gender, ShotType, ProfileStyle } from '../types';
+import { GenerationMode, StylePreset, Gender, ShotType, ProfileStyle, GeneratedImage } from '../types';
 import { LOOKBOOK_VARIATION_FOCUS, BROLL_VARIATION_FOCUS, PROFILE_PICTURE_VARIATION_FOCUS } from '../constants';
 
 let ai: GoogleGenAI | null = null;
@@ -47,7 +47,10 @@ export const generateShowcaseImages = async (
   productImage: File,
   modelImage?: File | null,
   apiKey?: string,
-  count: number = 6
+  count: number = 6,
+  faceConsistency: boolean = true,
+  faceQuality: string = 'high',
+  stylePreset?: { prompt: string; name: string }
 ): Promise<{ src: string; prompt: string }[]> => {
   // Always require API key for real generation
   if (!apiKey && !localStorage.getItem('gemini_api_key') && !process.env.API_KEY) {
@@ -66,12 +69,51 @@ export const generateShowcaseImages = async (
     let promptText = '';
 
     if (mode === GenerationMode.Lookbook && modelPart) {
+      // FIRST IMAGE: Model (face and body)
       parts.push({ inlineData: modelPart });
+      // SECOND IMAGE: Product (clothing only)
       parts.push({ inlineData: productPart });
-      promptText = `You are a professional fashion photoshoot editor. Your task is to place the person from the first input image into a new setting, wearing the clothes from the second input image. It is absolutely critical that you DO NOT change the model's face, facial features, or identity in any way. The face in the output image must be identical to the face in the first input image. Equally important, the product from the second image (the clothing/accessory) must remain completely unchanged. Do not alter its color, shape, texture, or any specific details. Your only task is to style it on the model within a new scene. The new scene should be a "${theme}" photoshoot with "${lighting}". Pose the model naturally and dynamically. This is variation ${variation}/${count}.`;
+      
+      let facePreservationText = '';
+      if (faceConsistency) {
+        facePreservationText = `
+FACE PRESERVATION - MANDATORY:
+- Use ONLY the person from IMAGE 1 (model) - IGNORE any person in IMAGE 2
+- The final person must be IDENTICAL to the person in IMAGE 1
+- Copy the exact face, facial features, bone structure, and identity from IMAGE 1
+- Maintain the same skin tone, texture, and facial proportions from IMAGE 1
+- Keep the same hair color, style, and texture from IMAGE 1
+- Preserve all unique facial characteristics from IMAGE 1
+- DO NOT use the face from IMAGE 2 even if there is a person there`;
+      }
+
+      // Use style preset if provided, otherwise use theme and lighting
+      const settingDescription = stylePreset ? stylePreset.prompt : `"${theme}" environment with "${lighting}" lighting`;
+      
+      promptText = `Create a fashion photoshoot by combining these two images:
+
+IMAGE 1 (Model): Use the person's face and identity - IGNORE any person in IMAGE 2
+IMAGE 2 (Product): Use ONLY the clothing design - IGNORE the person in this image
+
+CRITICAL REQUIREMENTS:
+- The person in the final image must be EXACTLY the same person from IMAGE 1 (model)
+- IGNORE the person in IMAGE 2 (product) completely - do NOT use their face
+- Use ONLY the clothing design from IMAGE 2 (keep exact colors and style)
+- Setting: ${settingDescription}
+- Create a new pose and background
+- The final person must look identical to the person in IMAGE 1, not IMAGE 2
+
+${faceConsistency ? facePreservationText : ''}
+
+REMEMBER: Even if IMAGE 2 has a person, IGNORE them. Use only the clothing from IMAGE 2 and the person from IMAGE 1.
+
+This is variation ${variation}/${count}.`;
     } else {
       parts.push({ inlineData: productPart });
-      promptText = `Act as a professional product photographer. Create a stunning, high-resolution B-roll shot of the product in the image. It is crucial that the product itself remains identical to the one in the uploaded image. Do not change its color, design, logos, or any details. Your job is to showcase this exact product in a new, creative photographic setting. The setting is "${theme}" with a "${lighting}" lighting style. Emphasize a cinematic feel with dynamic composition and a shallow depth of field to make the product stand out. The final image must look like a professional advertisement. This is variation ${variation}/${count}.`;
+      // Use style preset if provided, otherwise use theme and lighting
+      const settingDescription = stylePreset ? stylePreset.prompt : `"${theme}" environment with "${lighting}" lighting`;
+      
+      promptText = `Act as a professional product photographer. Create a stunning, high-resolution B-roll shot of the product in the image. It is crucial that the product itself remains identical to the one in the uploaded image. Do not change its color, design, logos, or any details. Your job is to showcase this exact product in a new, creative photographic setting. The setting is ${settingDescription}. Emphasize a cinematic feel with dynamic composition and a shallow depth of field to make the product stand out. The final image must look like a professional advertisement. This is variation ${variation}/${count}.`;
     }
     parts.push({ text: promptText });
 
@@ -305,35 +347,9 @@ export const generateVeo3Prompt = (
                    mode === GenerationMode.Broll ? templates.broll : 
                    templates.profilepicture;
 
-  return `Create a dynamic vertical video (9:16 aspect ratio) based on this image with Indonesian voiceover narration:
+  return `PROMPT 1 (Hook + Problem - 8 detik pertama):
+Based on this image, create a dynamic vertical video (9:16 aspect ratio). The camera starts with a medium shot, then slowly zooms in and pans slightly to highlight the outfit details and styling. Use cinematic lighting, smooth dynamic motion, and showcase the subject prominently. Voiceover (Indonesian): "${template.hook}" "${template.masalah}"
 
-HOOK (0-3 seconds): "${template.hook}"
-- Start with engaging question/statement
-- Show main subject prominently  
-- Use dynamic camera movement (zoom in/pan)
-
-PROBLEM (3-8 seconds): "${template.masalah}"
-- Explain the common problem/challenge
-- Use close-up shots to emphasize details
-- Maintain engagement with smooth transitions
-
-CONTENT (8-20 seconds): "${template.isi}"
-- Showcase main content/product/style
-- Use multiple angles and perspectives
-- Highlight key features and benefits
-- Include smooth camera movements
-
-SOLUTION (20-25 seconds): "${template.solusi}"
-- Present solution or call-to-action
-- End with strong, confident statement
-- Use wide shot or hero angle
-- Add subtle zoom out for impact
-
-Technical requirements:
-- Duration: 25 seconds maximum
-- Aspect ratio: 9:16 (vertical)
-- Indonesian voiceover with clear pronunciation
-- Background music: upbeat and engaging
-- Text overlays in Indonesian for key points
-- Modern, dynamic style for social media`;
+PROMPT 2 (Content + Solution - sisa durasi):
+Continue the same scene from the previous image. Show multiple angles and perspectives - close-ups of details, different poses, and various shots. Use smooth camera movements, dynamic lighting, and showcase the complete look from different angles. End with a confident wide shot. Voiceover (Indonesian): "${template.isi}" "${template.solusi}"`;
 };
