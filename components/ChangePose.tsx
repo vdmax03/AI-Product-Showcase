@@ -71,7 +71,7 @@ const ChangePose: React.FC<ChangePoseProps> = ({ apiKey, onBack }) => {
     } finally {
       setIsLoading(false);
     }
-  }, [isGenerationDisabled, productImage, modelImage, apiKey, count]);
+  }, [isGenerationDisabled, modelImage, apiKey, count, selectedPoseStyle]);
 
   return (
     <>

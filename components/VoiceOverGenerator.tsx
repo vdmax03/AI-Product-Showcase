@@ -87,7 +87,6 @@ const VoiceOverGenerator: React.FC<VoiceOverGeneratorProps> = ({ apiKey, onBack 
       console.log('Starting narrative generation with:', {
         productImages: productImages.length,
         stylePrompt: selectedStyleObj.prompt,
-        template: selectedTemplateObj.template,
         customPrompt,
         narrativeLength,
         targetAudience,

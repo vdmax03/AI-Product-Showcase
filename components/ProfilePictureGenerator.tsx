@@ -46,7 +46,7 @@ const ProfilePictureGenerator: React.FC<ProfilePictureGeneratorProps> = ({ apiKe
     } finally {
       setIsLoading(false);
     }
-  }, [isGenerationDisabled, productImage, modelImage, apiKey, count]);
+  }, [isGenerationDisabled, userImage, gender, shotType, style, apiKey]);
 
   const handleGenerateMore = useCallback(async () => {
     if (!userImage || isLoading) return;

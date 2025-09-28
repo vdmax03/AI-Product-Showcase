@@ -72,7 +72,7 @@ const SkincareApplicator: React.FC<SkincareApplicatorProps> = ({ apiKey, onBack 
     } finally {
       setIsLoading(false);
     }
-  }, [isGenerationDisabled, productImage, modelImage, apiKey, count]);
+  }, [isGenerationDisabled, productImage, modelImage, apiKey, count, selectedSkincareStyle]);
 
   return (
     <>

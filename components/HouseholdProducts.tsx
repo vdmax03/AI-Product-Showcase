@@ -67,7 +67,7 @@ const HouseholdProducts: React.FC<HouseholdProductsProps> = ({ apiKey, onBack })
     } finally {
       setIsLoading(false);
     }
-  }, [isGenerationDisabled, productImage, modelImage, apiKey, count]);
+  }, [isGenerationDisabled, productImage, modelImage, apiKey, count, selectedHouseholdStyle]);
 
   return (
     <>

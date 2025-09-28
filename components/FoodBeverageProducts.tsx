@@ -72,7 +72,7 @@ const FoodBeverageProducts: React.FC<FoodBeverageProductsProps> = ({ apiKey, onB
     } finally {
       setIsLoading(false);
     }
-  }, [isGenerationDisabled, productImage, modelImage, apiKey, count]);
+  }, [isGenerationDisabled, productImage, modelImage, apiKey, count, selectedFnbStyle]);
 
   return (
     <>

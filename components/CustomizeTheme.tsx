@@ -74,7 +74,7 @@ const CustomizeTheme: React.FC<CustomizeThemeProps> = ({ apiKey, onBack }) => {
     } finally {
       setIsLoading(false);
     }
-  }, [isGenerationDisabled, productImage, modelImage, apiKey, count]);
+  }, [isGenerationDisabled, productImage, modelImage, apiKey, count, selectedThemeStyle]);
 
   return (
     <>
