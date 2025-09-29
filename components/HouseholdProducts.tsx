@@ -171,7 +171,7 @@ const HouseholdProducts: React.FC<HouseholdProductsProps> = ({ apiKey, onBack })
               </div>
               <div className="flex items-center justify-center gap-3">
                 <div className="flex gap-2">
-                  {[3, 6, 9, 12].map(n => (
+                  {[1, 2, 3, 6, 9, 12].map(n => (
                     <button
                       key={n}
                       type="button"

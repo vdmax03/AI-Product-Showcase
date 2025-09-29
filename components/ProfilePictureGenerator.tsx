@@ -20,6 +20,7 @@ const ProfilePictureGenerator: React.FC<ProfilePictureGeneratorProps> = ({ apiKe
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [zoomedImage, setZoomedImage] = useState<string | null>(null);
+  const [count, setCount] = useState<number>(20);
 
   const isGenerationDisabled = useMemo(() => {
     return isLoading || !userImage;
@@ -34,7 +35,7 @@ const ProfilePictureGenerator: React.FC<ProfilePictureGeneratorProps> = ({ apiKe
 
     try {
       if (!userImage) throw new Error("User image is required.");
-      const results = await generateProfilePictures(userImage, gender, shotType, style, apiKey, 20);
+      const results = await generateProfilePictures(userImage, gender, shotType, style, apiKey, count);
       if (results.length === 0) {
         throw new Error("The model did not return any images. Please try a different combination or check your API key.");
       }
@@ -46,7 +47,7 @@ const ProfilePictureGenerator: React.FC<ProfilePictureGeneratorProps> = ({ apiKe
     } finally {
       setIsLoading(false);
     }
-  }, [isGenerationDisabled, userImage, gender, shotType, style, apiKey]);
+  }, [isGenerationDisabled, userImage, gender, shotType, style, apiKey, count]);
 
   const handleGenerateMore = useCallback(async () => {
     if (!userImage || isLoading) return;
@@ -200,25 +201,46 @@ const ProfilePictureGenerator: React.FC<ProfilePictureGeneratorProps> = ({ apiKe
             <div>
               <h2 className="text-lg font-semibold text-white mb-3">3 Generate Profile Pictures</h2>
               <p className="text-sm text-gray-400 mb-4">
-                Click the button below to generate 20 unique studio profile pictures with your selected options.
+                Click the button below to generate profile pictures with your selected options.
               </p>
-              <button
-                onClick={handleGenerate}
-                disabled={isGenerationDisabled}
-                className="w-full bg-blue-600 text-white font-bold py-3 px-4 rounded-lg transition-all duration-300 ease-in-out hover:bg-blue-700 disabled:bg-slate-600 disabled:cursor-not-allowed disabled:text-gray-400 flex items-center justify-center"
-              >
-                {isLoading ? (
-                  <>
-                    <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    Generating...
-                  </>
-                ) : (
-                  'Start Generation'
-                )}
-              </button>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">Number of Images</label>
+                  <div className="flex gap-2">
+                    {[1, 2, 3, 6, 9, 12, 20].map(n => (
+                      <button
+                        key={n}
+                        type="button"
+                        onClick={() => setCount(n)}
+                        className={`px-3 py-1.5 text-xs font-semibold rounded-md border ${
+                          count === n
+                            ? 'bg-blue-600 text-white border-blue-500'
+                            : 'bg-slate-700 text-gray-200 border-slate-600 hover:bg-slate-600'
+                        }`}
+                      >
+                        {n}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <button
+                  onClick={handleGenerate}
+                  disabled={isGenerationDisabled}
+                  className="w-full bg-blue-600 text-white font-bold py-3 px-4 rounded-lg transition-all duration-300 ease-in-out hover:bg-blue-700 disabled:bg-slate-600 disabled:cursor-not-allowed disabled:text-gray-400 flex items-center justify-center"
+                >
+                  {isLoading ? (
+                    <>
+                      <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Generating...
+                    </>
+                  ) : (
+                    'Start Generation'
+                  )}
+                </button>
+              </div>
               <p className="text-xs text-gray-500 mt-2">
                 Tip: If you're not satisfied, try again to get different styles.
               </p>
