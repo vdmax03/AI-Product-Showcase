@@ -894,42 +894,56 @@ export const generateHouseholdProductImages = async (
   apiKey?: string,
   count: number = 6
 ): Promise<{ src: string; prompt: string }[]> => {
-  if (!apiKey) {
-    throw new Error('API Key is required');
+  // Always require API key for real generation
+  if (!apiKey && !localStorage.getItem('gemini_api_key') && !process.env.API_KEY) {
+    throw new Error("API key is required. Please enter your Gemini API key to generate images.");
   }
 
   if (!productImage || !modelImage) {
     throw new Error('Both product and model images are required');
   }
 
-  try {
-    // Convert images to base64
-    const productDataUrl = await new Promise<string>((resolve) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result as string);
-      reader.readAsDataURL(productImage);
-    });
+  const aiInstance = getAI(apiKey);
 
-    const modelDataUrl = await new Promise<string>((resolve) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result as string);
-      reader.readAsDataURL(modelImage);
-    });
+  const productPart = await fileToGenerativePart(productImage);
+  const modelPart = await fileToGenerativePart(modelImage);
 
-    // Create specific prompt for household products
-    const householdPrompt = `Generate ${count} professional product photography images showing the EXACT SAME PERSON from the uploaded model image interacting with household products.
+  let isApiKeyInvalid = false;
+
+  const generateSingleImage = async (variation: number): Promise<{ src: string; prompt: string } | null> => {
+    const parts: any[] = [];
+    
+    // FIRST IMAGE: Model (face and body)
+    parts.push({ inlineData: modelPart });
+    // SECOND IMAGE: Product (household item)
+    parts.push({ inlineData: productPart });
+    
+    const promptText = `Create a professional household product photoshoot by combining these two images:
+
+IMAGE 1 (Model): Use the person's face, facial features, and identity
+IMAGE 2 (Product): Use ONLY the household product design - IGNORE any person in this image
 
 CRITICAL REQUIREMENTS:
-- MUST maintain the EXACT SAME FACE, facial features, and identity from the uploaded model image
+- The person in the final image must be EXACTLY the same person from IMAGE 1 (model)
+- MUST preserve the EXACT SAME FACE, facial features, bone structure, and identity from IMAGE 1
+- IGNORE any person in IMAGE 2 (product) completely - do NOT use their face
+- Use ONLY the household product from IMAGE 2 (keep exact colors, design, and features)
 - The person should be USING, HOLDING, or INTERACTING with the household product
 - Show the actual household product being used in realistic home settings
 - The person should NOT be wearing clothing with the product's pattern/design
 - Focus on demonstrating the product's functionality and use cases
-- Use natural home lighting and realistic home environments
+- Use natural home lighting and realistic home environments: ${style}
 - Show different angles and perspectives of the product in use
 - PRESERVE the original person's appearance, facial structure, and identity
 
-STYLE: ${style}
+FACE PRESERVATION - MANDATORY:
+- Use ONLY the person from IMAGE 1 (model) - IGNORE any person in IMAGE 2
+- The final person must be IDENTICAL to the person in IMAGE 1
+- Copy the exact face, facial features, bone structure, and identity from IMAGE 1
+- Maintain the same skin tone, texture, and facial proportions from IMAGE 1
+- Keep the same hair color, style, and texture from IMAGE 1
+- Preserve all unique facial characteristics from IMAGE 1
+- DO NOT use the face from IMAGE 2 even if there is a person there
 
 SCENARIOS TO INCLUDE:
 - The SAME PERSON holding/using the household product
@@ -938,113 +952,58 @@ SCENARIOS TO INCLUDE:
 - Close-up shots of the product being handled
 - Wide shots showing the product in context
 
-Generate realistic, professional images that showcase household products being used by the EXACT SAME PERSON from the uploaded image in natural home settings.`;
+REMEMBER: Even if IMAGE 2 has a person, IGNORE them. Use only the household product from IMAGE 2 and the person from IMAGE 1.
 
-    // Prepare the request
-    const requestBody = {
-      contents: [{
-        parts: [
-          {
-            text: householdPrompt
-          },
-          {
-            inline_data: {
-              mime_type: "image/jpeg",
-              data: productDataUrl.split(',')[1]
-            }
-          },
-          {
-            inline_data: {
-              mime_type: "image/jpeg", 
-              data: modelDataUrl.split(',')[1]
-            }
-          }
-        ]
-      }],
-      generationConfig: {
-        temperature: 0.7,
-        topK: 40,
-        topP: 0.95,
-        maxOutputTokens: 2048,
-      }
-    };
+This is variation ${variation}/${count}.`;
 
-    // Retry mechanism for API calls
-    let response;
-    let retryCount = 0;
-    const maxRetries = 3;
-    
-    while (retryCount <= maxRetries) {
-      try {
-        response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image-preview:generateContent?key=${apiKey}`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(requestBody)
-        });
-        
-        if (response.ok) {
-          break;
+    parts.push({ text: promptText });
+
+    try {
+      const aiInstance = getAI(apiKey);
+      const response = await aiInstance.models.generateContent({
+        model: 'gemini-2.5-flash-image-preview',
+        contents: { parts },
+        config: {
+          responseModalities: [Modality.IMAGE, Modality.TEXT],
+        },
+      });
+
+      for (const part of response.candidates?.[0]?.content?.parts || []) {
+        if (part.inlineData) {
+          return {
+            src: `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`,
+            prompt: promptText.substring(0, 200), // Keep prompt short for display
+          };
         }
-        
-        if (response.status === 503 && retryCount < maxRetries) {
-          console.warn(`Service temporarily unavailable, retrying in ${(retryCount + 1) * 2} seconds...`);
-          await new Promise(resolve => setTimeout(resolve, (retryCount + 1) * 2000));
-          retryCount++;
-          continue;
-        }
-        
-        const errorData = await response.json();
-        throw new Error(`Generation failed: ${errorData.error?.message || 'Unknown error'}`);
-      } catch (error) {
-        if (retryCount < maxRetries && (error.message.includes('503') || error.message.includes('Service Unavailable'))) {
-          console.warn(`Network error, retrying in ${(retryCount + 1) * 2} seconds...`);
-          await new Promise(resolve => setTimeout(resolve, (retryCount + 1) * 2000));
-          retryCount++;
-          continue;
-        }
-        throw error;
       }
-    }
-
-    const data = await response.json();
-    const generatedText = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
-
-    // Parse the generated text to extract image URLs and prompts
-    const imageMatches = generatedText.match(/https:\/\/[^\s]+\.(jpg|jpeg|png|gif)/gi) || [];
-    const promptMatches = generatedText.split('\n').filter(line => 
-      line.trim() && !line.includes('http') && line.length > 20
-    );
-
-    // Generate multiple variations
-    const results = [];
-    for (let i = 0; i < count; i++) {
-      const imageUrl = imageMatches[i];
-      const prompt = promptMatches[i] || `Professional household product photography showing person using product in ${style.toLowerCase()} setting`;
-      
-      // Only add if we have a valid image URL
-      if (imageUrl) {
-        results.push({
-          src: imageUrl,
-          prompt: prompt
-        });
+      return null;
+    } catch (error: any) {
+      const message = String(error?.message || error);
+      if (message.includes('API key not valid') || message.includes('API_KEY_INVALID') || message.includes('INVALID_ARGUMENT')) {
+        isApiKeyInvalid = true;
       }
+      console.error(`Error generating household product image ${variation}:`, error);
+      return null; // continue gracefully
     }
+  };
 
-    return results;
+  const generationPromises = Array.from({ length: Math.max(1, Math.min(12, count)) }, (_, i) => generateSingleImage(i + 1));
 
-  } catch (error) {
-    console.error('Household product generation error:', error);
-    
-    // Fallback: Return empty array if service is unavailable
-    if (error.message.includes('503') || error.message.includes('Service Unavailable')) {
-      console.warn('Service temporarily unavailable, returning empty results');
-      return [];
-    }
-    
-    throw error;
+  const results = await Promise.all(generationPromises);
+
+  // Filter out any null results from failed generations
+  const filtered = results.filter((result): result is { src: string; prompt: string } => result !== null);
+
+  // If API key is invalid or nothing came back, throw error instead of using mock
+  if (isApiKeyInvalid) {
+    throw new Error("Invalid API key. Please check your Gemini API key and try again.");
   }
+
+  if (filtered.length === 0) {
+    throw new Error("No images were generated. Please try again with different settings or check your API key.");
+  }
+
+  return filtered;
 };
 
 // Virtual Try-On Generation Service
@@ -1055,158 +1014,109 @@ export const generateVirtualTryOnImages = async (
   apiKey?: string,
   count: number = 6
 ): Promise<{ src: string; prompt: string }[]> => {
-  if (!apiKey) {
-    throw new Error('API Key is required');
+  // Always require API key for real generation
+  if (!apiKey && !localStorage.getItem('gemini_api_key') && !process.env.API_KEY) {
+    throw new Error("API key is required. Please enter your Gemini API key to generate images.");
   }
 
   if (!modelImage || !clothingImage) {
     throw new Error('Both model and clothing images are required');
   }
 
-  try {
-    // Convert images to base64
-    const modelDataUrl = await new Promise<string>((resolve) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result as string);
-      reader.readAsDataURL(modelImage);
-    });
+  const aiInstance = getAI(apiKey);
 
-    const clothingDataUrl = await new Promise<string>((resolve) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result as string);
-      reader.readAsDataURL(clothingImage);
-    });
+  const modelPart = await fileToGenerativePart(modelImage);
+  const clothingPart = await fileToGenerativePart(clothingImage);
 
-    // Create specific prompt for virtual try-on
-    const tryOnPrompt = `Generate ${count} professional fashion photography images showing virtual try-on of clothing items.
+  let isApiKeyInvalid = false;
+
+  const generateSingleImage = async (variation: number): Promise<{ src: string; prompt: string } | null> => {
+    const parts: any[] = [];
+    
+    // FIRST IMAGE: Model (face and body)
+    parts.push({ inlineData: modelPart });
+    // SECOND IMAGE: Clothing item
+    parts.push({ inlineData: clothingPart });
+    
+    const promptText = `Create a professional virtual try-on photoshoot by combining these two images:
+
+IMAGE 1 (Model): Use the person's face, facial features, and identity
+IMAGE 2 (Clothing): Use ONLY the clothing item design - IGNORE any person in this image
 
 CRITICAL REQUIREMENTS:
-- MUST maintain the EXACT SAME FACE, facial features, and identity from the uploaded model image
-- The person should be WEARING the clothing item from the second image
+- The person in the final image must be EXACTLY the same person from IMAGE 1 (model)
+- MUST preserve the EXACT SAME FACE, facial features, bone structure, and identity from IMAGE 1
+- IGNORE any person in IMAGE 2 (clothing) completely - do NOT use their face
+- Use ONLY the clothing item from IMAGE 2 (keep exact colors, design, and features)
+- The person should be WEARING the clothing item from IMAGE 2
 - Show the clothing item properly fitted on the person
-- Use realistic lighting and professional photography style
+- Use realistic lighting and professional photography style: ${style}
 - Show different angles and poses to showcase the clothing
 - The clothing should look natural and well-fitted on the person
 - Focus on the clothing item being worn, not just held
 - PRESERVE the original person's appearance, facial structure, and identity
 
-STYLE: ${style}
+FACE PRESERVATION - MANDATORY:
+- Use ONLY the person from IMAGE 1 (model) - IGNORE any person in IMAGE 2
+- The final person must be IDENTICAL to the person in IMAGE 1
+- Copy the exact face, facial features, bone structure, and identity from IMAGE 1
+- Maintain the same skin tone, texture, and facial proportions from IMAGE 1
+- Keep the same hair color, style, and texture from IMAGE 1
+- Preserve all unique facial characteristics from IMAGE 1
+- DO NOT use the face from IMAGE 2 even if there is a person there
 
-SCENARIOS TO INCLUDE:
-- The SAME PERSON wearing the clothing item in various poses
-- Different angles showing the clothing fit and style
-- Professional fashion photography lighting
-- Clean background to focus on the clothing
-- Close-up shots showing clothing details
-- Full-body shots showing the complete outfit
+REMEMBER: Even if IMAGE 2 has a person, IGNORE them. Use only the clothing item from IMAGE 2 and the person from IMAGE 1.
 
-Generate realistic, professional images that showcase the clothing item being worn by the EXACT SAME PERSON from the uploaded model image.`;
+This is variation ${variation}/${count}.`;
 
-    // Prepare the request
-    const requestBody = {
-      contents: [{
-        parts: [
-          {
-            text: tryOnPrompt
-          },
-          {
-            inline_data: {
-              mime_type: "image/jpeg",
-              data: modelDataUrl.split(',')[1]
-            }
-          },
-          {
-            inline_data: {
-              mime_type: "image/jpeg", 
-              data: clothingDataUrl.split(',')[1]
-            }
-          }
-        ]
-      }],
-      generationConfig: {
-        temperature: 0.7,
-        topK: 40,
-        topP: 0.95,
-        maxOutputTokens: 2048,
-      }
-    };
+    parts.push({ text: promptText });
 
-    // Retry mechanism for API calls
-    let response;
-    let retryCount = 0;
-    const maxRetries = 3;
-    
-    while (retryCount <= maxRetries) {
-      try {
-        response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image-preview:generateContent?key=${apiKey}`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(requestBody)
-        });
-        
-        if (response.ok) {
-          break;
+    try {
+      const aiInstance = getAI(apiKey);
+      const response = await aiInstance.models.generateContent({
+        model: 'gemini-2.5-flash-image-preview',
+        contents: { parts },
+        config: {
+          responseModalities: [Modality.IMAGE, Modality.TEXT],
+        },
+      });
+
+      for (const part of response.candidates?.[0]?.content?.parts || []) {
+        if (part.inlineData) {
+          return {
+            src: `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`,
+            prompt: promptText.substring(0, 200), // Keep prompt short for display
+          };
         }
-        
-        if (response.status === 503 && retryCount < maxRetries) {
-          console.warn(`Service temporarily unavailable, retrying in ${(retryCount + 1) * 2} seconds...`);
-          await new Promise(resolve => setTimeout(resolve, (retryCount + 1) * 2000));
-          retryCount++;
-          continue;
-        }
-        
-        const errorData = await response.json();
-        throw new Error(`Generation failed: ${errorData.error?.message || 'Unknown error'}`);
-      } catch (error) {
-        if (retryCount < maxRetries && (error.message.includes('503') || error.message.includes('Service Unavailable'))) {
-          console.warn(`Network error, retrying in ${(retryCount + 1) * 2} seconds...`);
-          await new Promise(resolve => setTimeout(resolve, (retryCount + 1) * 2000));
-          retryCount++;
-          continue;
-        }
-        throw error;
       }
-    }
-
-    const data = await response.json();
-    const generatedText = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
-
-    // Parse the generated text to extract image URLs and prompts
-    const imageMatches = generatedText.match(/https:\/\/[^\s]+\.(jpg|jpeg|png|gif)/gi) || [];
-    const promptMatches = generatedText.split('\n').filter(line => 
-      line.trim() && !line.includes('http') && line.length > 20
-    );
-
-    // Generate multiple variations
-    const results = [];
-    for (let i = 0; i < count; i++) {
-      const imageUrl = imageMatches[i];
-      const prompt = promptMatches[i] || `Professional virtual try-on photography showing person wearing clothing in ${style.toLowerCase()} style`;
-      
-      // Only add if we have a valid image URL
-      if (imageUrl) {
-        results.push({
-          src: imageUrl,
-          prompt: prompt
-        });
+      return null;
+    } catch (error: any) {
+      const message = String(error?.message || error);
+      if (message.includes('API key not valid') || message.includes('API_KEY_INVALID') || message.includes('INVALID_ARGUMENT')) {
+        isApiKeyInvalid = true;
       }
+      console.error(`Error generating virtual try-on image ${variation}:`, error);
+      return null; // continue gracefully
     }
+  };
 
-    return results;
+  const generationPromises = Array.from({ length: Math.max(1, Math.min(12, count)) }, (_, i) => generateSingleImage(i + 1));
 
-  } catch (error) {
-    console.error('Virtual try-on generation error:', error);
-    
-    // Fallback: Return empty array if service is unavailable
-    if (error.message.includes('503') || error.message.includes('Service Unavailable')) {
-      console.warn('Service temporarily unavailable, returning empty results');
-      return [];
-    }
-    
-    throw error;
+  const results = await Promise.all(generationPromises);
+
+  // Filter out any null results from failed generations
+  const filtered = results.filter((result): result is { src: string; prompt: string } => result !== null);
+
+  // If API key is invalid or nothing came back, throw error instead of using mock
+  if (isApiKeyInvalid) {
+    throw new Error("Invalid API key. Please check your Gemini API key and try again.");
   }
+
+  if (filtered.length === 0) {
+    throw new Error("No images were generated. Please try again with different settings or check your API key.");
+  }
+
+  return filtered;
 };
 
 // Product Backgrounds Generation Service
@@ -1216,27 +1126,31 @@ export const generateProductBackgroundImages = async (
   apiKey?: string,
   count: number = 6
 ): Promise<{ src: string; prompt: string }[]> => {
-  if (!apiKey) {
-    throw new Error('API Key is required');
+  // Always require API key for real generation
+  if (!apiKey && !localStorage.getItem('gemini_api_key') && !process.env.API_KEY) {
+    throw new Error("API key is required. Please enter your Gemini API key to generate images.");
   }
 
   if (!productImage) {
     throw new Error('Product image is required');
   }
 
-  try {
-    // Convert image to base64
-    const productDataUrl = await new Promise<string>((resolve) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result as string);
-      reader.readAsDataURL(productImage);
-    });
+  const aiInstance = getAI(apiKey);
 
-    // Create specific prompt for product backgrounds
-    const backgroundPrompt = `Generate ${count} professional product photography images with different background styles.
+  const productPart = await fileToGenerativePart(productImage);
+
+  let isApiKeyInvalid = false;
+
+  const generateSingleImage = async (variation: number): Promise<{ src: string; prompt: string } | null> => {
+    const parts: any[] = [];
+    
+    parts.push({ inlineData: productPart });
+    
+    const promptText = `Act as a professional product photographer. Create a stunning, high-resolution product shot of the item in the image. It is crucial that the product itself remains identical to the one in the uploaded image. Do not change its color, design, logos, or any details. Your job is to showcase this exact product in a new, creative photographic setting.
 
 IMPORTANT REQUIREMENTS:
-- Show the EXACT SAME PRODUCT from the uploaded image with the specified background style
+- Show the EXACT SAME PRODUCT from the uploaded image
+- Use the specified background style: ${backgroundStyle}
 - Use professional product photography lighting
 - Show different angles and compositions of the product
 - Focus on the product with the background as supporting element
@@ -1253,105 +1167,54 @@ SCENARIOS TO INCLUDE:
 - Close-up and wide shots
 - Various product orientations
 
-Generate realistic, professional product photography images that showcase the EXACT SAME PRODUCT from the uploaded image with the specified background style.`;
+Emphasize a cinematic feel with dynamic composition and a shallow depth of field to make the product stand out. The final image must look like a professional advertisement. This is variation ${variation}/${count}.`;
 
-    // Prepare the request
-    const requestBody = {
-      contents: [{
-        parts: [
-          {
-            text: backgroundPrompt
-          },
-          {
-            inline_data: {
-              mime_type: "image/jpeg",
-              data: productDataUrl.split(',')[1]
-            }
-          }
-        ]
-      }],
-      generationConfig: {
-        temperature: 0.7,
-        topK: 40,
-        topP: 0.95,
-        maxOutputTokens: 2048,
-      }
-    };
+    parts.push({ text: promptText });
 
-    // Retry mechanism for API calls
-    let response;
-    let retryCount = 0;
-    const maxRetries = 3;
-    
-    while (retryCount <= maxRetries) {
-      try {
-        response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image-preview:generateContent?key=${apiKey}`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(requestBody)
-        });
-        
-        if (response.ok) {
-          break;
+    try {
+      const aiInstance = getAI(apiKey);
+      const response = await aiInstance.models.generateContent({
+        model: 'gemini-2.5-flash-image-preview',
+        contents: { parts },
+        config: {
+          responseModalities: [Modality.IMAGE, Modality.TEXT],
+        },
+      });
+
+      for (const part of response.candidates?.[0]?.content?.parts || []) {
+        if (part.inlineData) {
+          return {
+            src: `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`,
+            prompt: promptText.substring(0, 200), // Keep prompt short for display
+          };
         }
-        
-        if (response.status === 503 && retryCount < maxRetries) {
-          console.warn(`Service temporarily unavailable, retrying in ${(retryCount + 1) * 2} seconds...`);
-          await new Promise(resolve => setTimeout(resolve, (retryCount + 1) * 2000));
-          retryCount++;
-          continue;
-        }
-        
-        const errorData = await response.json();
-        throw new Error(`Generation failed: ${errorData.error?.message || 'Unknown error'}`);
-      } catch (error) {
-        if (retryCount < maxRetries && (error.message.includes('503') || error.message.includes('Service Unavailable'))) {
-          console.warn(`Network error, retrying in ${(retryCount + 1) * 2} seconds...`);
-          await new Promise(resolve => setTimeout(resolve, (retryCount + 1) * 2000));
-          retryCount++;
-          continue;
-        }
-        throw error;
       }
-    }
-
-    const data = await response.json();
-    const generatedText = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
-
-    // Parse the generated text to extract image URLs and prompts
-    const imageMatches = generatedText.match(/https:\/\/[^\s]+\.(jpg|jpeg|png|gif)/gi) || [];
-    const promptMatches = generatedText.split('\n').filter(line => 
-      line.trim() && !line.includes('http') && line.length > 20
-    );
-
-    // Generate multiple variations
-    const results = [];
-    for (let i = 0; i < count; i++) {
-      const imageUrl = imageMatches[i];
-      const prompt = promptMatches[i] || `Professional product photography with ${backgroundStyle.toLowerCase()} background`;
-      
-      // Only add if we have a valid image URL
-      if (imageUrl) {
-        results.push({
-          src: imageUrl,
-          prompt: prompt
-        });
+      return null;
+    } catch (error: any) {
+      const message = String(error?.message || error);
+      if (message.includes('API key not valid') || message.includes('API_KEY_INVALID') || message.includes('INVALID_ARGUMENT')) {
+        isApiKeyInvalid = true;
       }
+      console.error(`Error generating product background image ${variation}:`, error);
+      return null; // continue gracefully
     }
+  };
 
-    return results;
+  const generationPromises = Array.from({ length: Math.max(1, Math.min(12, count)) }, (_, i) => generateSingleImage(i + 1));
 
-  } catch (error) {
-    console.error('Product background generation error:', error);
-    
-    // Fallback: Return empty array if service is unavailable
-    if (error.message.includes('503') || error.message.includes('Service Unavailable')) {
-      console.warn('Service temporarily unavailable, returning empty results');
-      return [];
-    }
-    
-    throw error;
+  const results = await Promise.all(generationPromises);
+
+  // Filter out any null results from failed generations
+  const filtered = results.filter((result): result is { src: string; prompt: string } => result !== null);
+
+  // If API key is invalid or nothing came back, throw error instead of using mock
+  if (isApiKeyInvalid) {
+    throw new Error("Invalid API key. Please check your Gemini API key and try again.");
   }
+
+  if (filtered.length === 0) {
+    throw new Error("No images were generated. Please try again with different settings or check your API key.");
+  }
+
+  return filtered;
 };

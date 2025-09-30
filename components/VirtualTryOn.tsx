@@ -2,17 +2,39 @@ import React, { useState, useCallback, useMemo } from 'react';
 import { GeneratedImage } from '../types';
 import { generateVirtualTryOnImages } from '../services/geminiService';
 import ImageUploader from './ImageUploader';
+import MultiImageUploader from './MultiImageUploader';
 import ImageCard from './ImageCard';
 import Modal from './Modal';
 import LoadingSpinner from './LoadingSpinner';
+
 interface VirtualTryOnProps {
   apiKey: string;
   onBack: () => void;
 }
 
+const BACKGROUND_OPTIONS = [
+  { id: 'studio', name: 'Studio Clean', prompt: 'Clean white studio background with professional lighting' },
+  { id: 'outdoor', name: 'Outdoor Natural', prompt: 'Natural outdoor setting with soft natural lighting' },
+  { id: 'urban', name: 'Urban Street', prompt: 'Modern urban street background with city atmosphere' },
+  { id: 'home', name: 'Home Interior', prompt: 'Cozy home interior with warm lighting' },
+  { id: 'beach', name: 'Beach Resort', prompt: 'Beautiful beach or resort setting with tropical vibes' },
+  { id: 'fashion', name: 'Fashion Studio', prompt: 'High-end fashion studio with dramatic lighting' },
+];
+
+const POSE_STYLES = [
+  { id: 'casual', name: 'Casual Poses', prompt: 'Relaxed and natural casual poses' },
+  { id: 'fashion', name: 'Fashion Poses', prompt: 'High-fashion editorial poses and expressions' },
+  { id: 'dynamic', name: 'Dynamic Poses', prompt: 'Energetic and movement-based poses' },
+  { id: 'portrait', name: 'Portrait Style', prompt: 'Professional portrait poses with focus on face' },
+  { id: 'lifestyle', name: 'Lifestyle Poses', prompt: 'Natural lifestyle poses in everyday situations' },
+  { id: 'runway', name: 'Runway Poses', prompt: 'Confident runway and catwalk poses' },
+];
+
 const VirtualTryOn: React.FC<VirtualTryOnProps> = ({ apiKey, onBack }) => {
-  const [modelImage, setModelImage] = useState<File | null>(null);
-  const [clothingImage, setClothingImage] = useState<File | null>(null);
+  const [modelImages, setModelImages] = useState<File[]>([]);
+  const [clothingImages, setClothingImages] = useState<File[]>([]);
+  const [selectedBackground, setSelectedBackground] = useState<string>(BACKGROUND_OPTIONS[0].id);
+  const [selectedPose, setSelectedPose] = useState<string>(POSE_STYLES[0].id);
   const [generatedImages, setGeneratedImages] = useState<GeneratedImage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -22,8 +44,16 @@ const VirtualTryOn: React.FC<VirtualTryOnProps> = ({ apiKey, onBack }) => {
   // Enhancement states removed
 
   const isGenerationDisabled = useMemo(() => {
-    return isLoading || !modelImage || !clothingImage;
-  }, [isLoading, modelImage, clothingImage]);
+    return isLoading || modelImages.length === 0 || clothingImages.length === 0;
+  }, [isLoading, modelImages, clothingImages]);
+
+  const selectedBackgroundStyle = useMemo(() => {
+    return BACKGROUND_OPTIONS.find(bg => bg.id === selectedBackground) || BACKGROUND_OPTIONS[0];
+  }, [selectedBackground]);
+
+  const selectedPoseStyle = useMemo(() => {
+    return POSE_STYLES.find(pose => pose.id === selectedPose) || POSE_STYLES[0];
+  }, [selectedPose]);
 
   const handleGenerate = useCallback(async () => {
     if (isGenerationDisabled) return;
@@ -33,28 +63,51 @@ const VirtualTryOn: React.FC<VirtualTryOnProps> = ({ apiKey, onBack }) => {
     setGeneratedImages([]);
 
     try {
-      if (!modelImage || !clothingImage) throw new Error("Both model and clothing images are required.");
-      const results = await generateVirtualTryOnImages(
-        modelImage, 
-        clothingImage, 
-        'Professional Fashion Photography', 
-        apiKey, 
-        count
-      );
+      if (modelImages.length === 0 || clothingImages.length === 0) {
+        throw new Error("Both model and clothing images are required.");
+      }
+
+      // Generate combinations of models and clothing
+      const allResults: GeneratedImage[] = [];
+      const totalCombinations = Math.min(count, modelImages.length * clothingImages.length);
       
-      if (results.length === 0) {
+      for (let i = 0; i < totalCombinations; i++) {
+        const modelIndex = i % modelImages.length;
+        const clothingIndex = Math.floor(i / modelImages.length) % clothingImages.length;
+        
+        const modelImage = modelImages[modelIndex];
+        const clothingImage = clothingImages[clothingIndex];
+        
+        const stylePrompt = `${selectedBackgroundStyle.prompt}. ${selectedPoseStyle.prompt}`;
+        
+        const results = await generateVirtualTryOnImages(
+          modelImage, 
+          clothingImage, 
+          stylePrompt, 
+          apiKey, 
+          1 // Generate 1 image per combination
+        );
+        
+        if (results.length > 0) {
+          allResults.push({
+            ...results[0],
+            id: `tryon-${Date.now()}-${i}`,
+            prompt: `${results[0].prompt} | Model: ${modelImage.name} | Clothing: ${clothingImage.name}`
+          });
+        }
+      }
+      
+      if (allResults.length === 0) {
         throw new Error("No images were generated. Please try again.");
       }
       
-      setGeneratedImages(
-        results.map((img, index) => ({ ...img, id: `tryon-${Date.now()}-${index}` }))
-      );
+      setGeneratedImages(allResults);
     } catch (err: any) {
       setError(err.message || 'An unexpected error occurred.');
     } finally {
       setIsLoading(false);
     }
-  }, [isGenerationDisabled, modelImage, clothingImage, apiKey, count]);
+  }, [isGenerationDisabled, modelImages, clothingImages, apiKey, count, selectedBackgroundStyle, selectedPoseStyle]);
 
   return (
     <>
@@ -80,7 +133,7 @@ const VirtualTryOn: React.FC<VirtualTryOnProps> = ({ apiKey, onBack }) => {
             <h1 className="text-4xl sm:text-5xl font-bold tracking-tight bg-gradient-to-r from-pink-400 to-purple-400 bg-clip-text text-transparent">
               Virtual Try-On
             </h1>
-            <p className="text-blue-200 mt-3 text-lg">Upload your photo and clothing to see how it looks when worn</p>
+            <p className="text-blue-200 mt-3 text-lg">Upload multiple models and clothing items to see various combinations</p>
           </div>
         </header>
 
@@ -94,17 +147,22 @@ const VirtualTryOn: React.FC<VirtualTryOnProps> = ({ apiKey, onBack }) => {
                 <div className="inline-flex items-center justify-center w-12 h-12 bg-gradient-to-r from-pink-500 to-purple-600 rounded-full mb-3">
                   <span className="text-white font-bold text-lg">1</span>
                 </div>
-                <h2 className="text-xl font-bold text-white mb-2">Upload Your Photo</h2>
-                <p className="text-blue-200 text-sm">A clear, high-quality photo of yourself for best results</p>
+                <h2 className="text-xl font-bold text-white mb-2">Upload Model Photos</h2>
+                <p className="text-blue-200 text-sm">Upload multiple model photos for variety (max 4)</p>
               </div>
-              <ImageUploader 
-                id="model-upload" 
-                title="" 
-                description="A clear, high-quality photo of yourself for best results." 
-                onImageUpload={setModelImage} 
-                onImageRemove={() => setModelImage(null)} 
-                isModelUpload={true}
+              <MultiImageUploader 
+                onImageChange={setModelImages}
+                multiple={true}
+                maxFiles={4}
+                className="w-full"
               />
+              {modelImages.length > 0 && (
+                <div className="text-center">
+                  <p className="text-pink-200 text-sm">
+                    {modelImages.length} model(s) uploaded
+                  </p>
+                </div>
+              )}
             </div>
 
             <div className="space-y-6">
@@ -112,43 +170,111 @@ const VirtualTryOn: React.FC<VirtualTryOnProps> = ({ apiKey, onBack }) => {
                 <div className="inline-flex items-center justify-center w-12 h-12 bg-gradient-to-r from-blue-500 to-cyan-600 rounded-full mb-3">
                   <span className="text-white font-bold text-lg">2</span>
                 </div>
-                <h2 className="text-xl font-bold text-white mb-2">Upload Clothing</h2>
-                <p className="text-blue-200 text-sm">Upload the clothing item you want to try on</p>
+                <h2 className="text-xl font-bold text-white mb-2">Upload Clothing Items</h2>
+                <p className="text-blue-200 text-sm">Upload multiple clothing items to try on (max 6)</p>
               </div>
-              <ImageUploader 
-                id="clothing-upload" 
-                title="" 
-                description="Upload the clothing item you want to try on." 
-                onImageUpload={setClothingImage} 
-                onImageRemove={() => setClothingImage(null)} 
+              <MultiImageUploader 
+                onImageChange={setClothingImages}
+                multiple={true}
+                maxFiles={6}
+                className="w-full"
               />
+              {clothingImages.length > 0 && (
+                <div className="text-center">
+                  <p className="text-blue-200 text-sm">
+                    {clothingImages.length} clothing item(s) uploaded
+                  </p>
+                </div>
+              )}
             </div>
 
-            {/* Generation Options */}
+            {/* Background Selection */}
             <div className="space-y-4">
               <div className="text-center">
                 <div className="inline-flex items-center justify-center w-12 h-12 bg-gradient-to-r from-green-500 to-emerald-600 rounded-full mb-3">
                   <span className="text-white font-bold text-lg">3</span>
                 </div>
+                <h2 className="text-xl font-bold text-white mb-2">Choose Background</h2>
+                <p className="text-blue-200 text-sm">Select the background style for your photos</p>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                {BACKGROUND_OPTIONS.map((bg) => (
+                  <button
+                    key={bg.id}
+                    onClick={() => setSelectedBackground(bg.id)}
+                    className={`p-3 rounded-xl border transition-all duration-300 text-left ${
+                      selectedBackground === bg.id
+                        ? 'border-pink-500 bg-pink-500/20 shadow-lg transform scale-105'
+                        : 'border-white/30 bg-white/10 hover:border-white/50 hover:bg-white/20'
+                    }`}
+                  >
+                    <p className="text-sm font-semibold text-white">{bg.name}</p>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Pose Selection */}
+            <div className="space-y-4">
+              <div className="text-center">
+                <div className="inline-flex items-center justify-center w-12 h-12 bg-gradient-to-r from-purple-500 to-indigo-600 rounded-full mb-3">
+                  <span className="text-white font-bold text-lg">4</span>
+                </div>
+                <h2 className="text-xl font-bold text-white mb-2">Choose Pose Style</h2>
+                <p className="text-blue-200 text-sm">Select the pose style for your models</p>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                {POSE_STYLES.map((pose) => (
+                  <button
+                    key={pose.id}
+                    onClick={() => setSelectedPose(pose.id)}
+                    className={`p-3 rounded-xl border transition-all duration-300 text-left ${
+                      selectedPose === pose.id
+                        ? 'border-purple-500 bg-purple-500/20 shadow-lg transform scale-105'
+                        : 'border-white/30 bg-white/10 hover:border-white/50 hover:bg-white/20'
+                    }`}
+                  >
+                    <p className="text-sm font-semibold text-white">{pose.name}</p>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Generation Options */}
+            <div className="space-y-4">
+              <div className="text-center">
+                <div className="inline-flex items-center justify-center w-12 h-12 bg-gradient-to-r from-orange-500 to-red-600 rounded-full mb-3">
+                  <span className="text-white font-bold text-lg">5</span>
+                </div>
                 <h2 className="text-xl font-bold text-white mb-2">Generation Options</h2>
-                <p className="text-blue-200 text-sm">Choose how many images to generate</p>
+                <p className="text-blue-200 text-sm">Choose how many combinations to generate</p>
+                <p className="text-pink-200 text-xs mt-1">
+                  Max: {modelImages.length * clothingImages.length} combinations available
+                </p>
               </div>
               <div className="flex items-center justify-center gap-3">
-                <div className="flex gap-2">
-                  {[1, 2, 3, 6, 9, 12].map(n => (
-                    <button
-                      key={n}
-                      type="button"
-                      onClick={() => setCount(n)}
-                      className={`px-4 py-2 text-sm font-semibold rounded-full border transition-all duration-300 ${
-                        count === n
-                          ? 'bg-gradient-to-r from-pink-500 to-purple-600 text-white border-transparent shadow-lg'
-                          : 'bg-white/10 text-white border-white/30 hover:bg-white/20'
-                      }`}
-                    >
-                      {n}
-                    </button>
-                  ))}
+                <div className="flex gap-2 flex-wrap">
+                  {[1, 2, 3, 6, 9, 12].map(n => {
+                    const maxCombinations = modelImages.length * clothingImages.length;
+                    const isDisabled = n > maxCombinations;
+                    return (
+                      <button
+                        key={n}
+                        type="button"
+                        onClick={() => setCount(n)}
+                        disabled={isDisabled}
+                        className={`px-4 py-2 text-sm font-semibold rounded-full border transition-all duration-300 ${
+                          count === n
+                            ? 'bg-gradient-to-r from-pink-500 to-purple-600 text-white border-transparent shadow-lg'
+                            : isDisabled
+                            ? 'bg-gray-500/20 text-gray-400 border-gray-500/30 cursor-not-allowed'
+                            : 'bg-white/10 text-white border-white/30 hover:bg-white/20'
+                        }`}
+                      >
+                        {n}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             </div>
@@ -165,14 +291,14 @@ const VirtualTryOn: React.FC<VirtualTryOnProps> = ({ apiKey, onBack }) => {
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                   </svg>
-                  Generating...
+                  Generating {count} combinations...
                 </>
               ) : (
                 <>
                   <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
                   </svg>
-                  Generate Virtual Try-On
+                  Generate {count} Try-On Combinations
                 </>
               )}
             </button>
@@ -183,7 +309,17 @@ const VirtualTryOn: React.FC<VirtualTryOnProps> = ({ apiKey, onBack }) => {
             <div className="flex justify-between items-center mb-6">
               <div>
                 <h2 className="text-2xl font-bold text-white mb-2">✨ Virtual Try-On Results</h2>
-                <p className="text-blue-200 text-sm">See how the clothing looks on you</p>
+                <p className="text-blue-200 text-sm">
+                  {generatedImages.length > 0 
+                    ? `${generatedImages.length} combinations generated` 
+                    : 'See various model and clothing combinations'
+                  }
+                </p>
+                {generatedImages.length > 0 && (
+                  <p className="text-pink-200 text-xs mt-1">
+                    Background: {selectedBackgroundStyle.name} | Pose: {selectedPoseStyle.name}
+                  </p>
+                )}
               </div>
               {generatedImages.length > 0 && (
                 <div className="flex gap-2">
@@ -233,8 +369,13 @@ const VirtualTryOn: React.FC<VirtualTryOnProps> = ({ apiKey, onBack }) => {
                     <path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                   </svg>
                 </div>
-                <p className="font-bold text-lg mb-2">Your virtual try-on results will appear here</p>
-                <p className="text-blue-200">Upload your photos and start trying on!</p>
+                <p className="font-bold text-lg mb-2">Your virtual try-on combinations will appear here</p>
+                <p className="text-blue-200">Upload multiple models and clothing items to see various combinations!</p>
+                <div className="mt-4 text-sm text-pink-200">
+                  <p>• Upload up to 4 different models</p>
+                  <p>• Upload up to 6 different clothing items</p>
+                  <p>• Choose background and pose styles</p>
+                </div>
               </div>
             )}
             
